@@ -1,0 +1,21 @@
+{
+  "name": "gym-stock",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gym stock & sales management — monorepo (admin panel + mobile customer app + API)",
+  "scripts": {
+    "dev": "pnpm -r --parallel dev",
+    "dev:api": "pnpm --filter @gym/api dev",
+    "dev:admin": "pnpm --filter @gym/admin dev",
+    "dev:customer": "pnpm --filter @gym/customer dev",
+    "build": "pnpm -r build",
+    "setup": "pnpm install && pnpm --filter @gym/api setup"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.30.3",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild", "@prisma/client", "@prisma/engines", "prisma", "vue-demi"]
+  }
+}
