@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { useI18n } from "vue-i18n";
 import { api, apiError, downloadFile } from "../api.js";
@@ -29,6 +29,32 @@ const money = (n) => `₺${Number(n || 0).toLocaleString("tr-TR", { maximumFract
 const dateOnly = (iso) => (iso ? new Date(iso).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }) : "—");
 
 const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-red", credit: "pill-steel" };
+
+// Click-to-sort. sortKey = null keeps the server order (createdAt desc, newest first).
+const sortKey = ref(null);
+const sortDir = ref("asc");
+const sortGetters = {
+  loginId: (c) => (c.loginId || "").toLowerCase(),
+  name: (c) => `${c.name} ${c.surname}`.toLowerCase(),
+  membershipStart: (c) => new Date(c.membershipStart).getTime() || 0,
+  overall: (c) => c.finance?.overall ?? 0,
+  balance: (c) => c.finance?.balance ?? 0,
+  status: (c) => c.finance?.status || ""
+};
+function sortBy(key) {
+  if (sortKey.value === key) sortDir.value = sortDir.value === "asc" ? "desc" : "asc";
+  else { sortKey.value = key; sortDir.value = "asc"; }
+}
+const sortIcon = (key) => (sortKey.value === key ? (sortDir.value === "asc" ? "▲" : "▼") : "");
+const sortedCustomers = computed(() => {
+  if (!sortKey.value) return customers.value;
+  const get = sortGetters[sortKey.value];
+  const dir = sortDir.value === "asc" ? 1 : -1;
+  return [...customers.value].sort((a, b) => {
+    const va = get(a), vb = get(b);
+    return va < vb ? -dir : va > vb ? dir : 0;
+  });
+});
 
 async function load() {
   loading.value = true;
@@ -169,19 +195,19 @@ async function exportMembers() {
       <table class="data">
         <thead>
           <tr>
-            <th>{{ t('members.colId') }}</th>
-            <th>{{ t('members.colName') }}</th>
-            <th>{{ t('members.colSince') }}</th>
-            <th class="right">{{ t('members.colOverall') }}</th>
-            <th class="right">{{ t('members.colBalance') }}</th>
-            <th>{{ t('members.colStatus') }}</th>
+            <th class="sortable" @click="sortBy('loginId')">{{ t('members.colId') }}<span class="sort-ind">{{ sortIcon('loginId') }}</span></th>
+            <th class="sortable" @click="sortBy('name')">{{ t('members.colName') }}<span class="sort-ind">{{ sortIcon('name') }}</span></th>
+            <th class="sortable" @click="sortBy('membershipStart')">{{ t('members.colSince') }}<span class="sort-ind">{{ sortIcon('membershipStart') }}</span></th>
+            <th class="right sortable" @click="sortBy('overall')">{{ t('members.colOverall') }}<span class="sort-ind">{{ sortIcon('overall') }}</span></th>
+            <th class="right sortable" @click="sortBy('balance')">{{ t('members.colBalance') }}<span class="sort-ind">{{ sortIcon('balance') }}</span></th>
+            <th class="sortable" @click="sortBy('status')">{{ t('members.colStatus') }}<span class="sort-ind">{{ sortIcon('status') }}</span></th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           <tr v-if="loading"><td colspan="7" class="center muted">{{ t('members.loading') }}</td></tr>
           <tr v-else-if="!customers.length"><td colspan="7" class="center muted">{{ t('members.empty') }}</td></tr>
-          <tr v-for="c in customers" :key="c.id" :class="{ rowdanger: c.finance?.status === 'overdue' }">
+          <tr v-for="c in sortedCustomers" :key="c.id" :class="{ rowdanger: c.finance?.status === 'overdue' }">
             <td class="num strong">{{ c.loginId }}</td>
             <td>
               {{ c.name }} {{ c.surname }}
@@ -285,6 +311,9 @@ async function exportMembers() {
 .toolbar { margin-bottom: 14px; }
 .search { max-width: 340px; }
 .table-wrap { overflow: auto; }
+.sortable { cursor: pointer; user-select: none; white-space: nowrap; }
+.sortable:hover { color: var(--orange); }
+.sort-ind { font-size: 10px; margin-left: 5px; color: var(--orange); }
 .center { text-align: center; }
 .muted { color: var(--txt-faint); }
 .strong { font-weight: 700; }

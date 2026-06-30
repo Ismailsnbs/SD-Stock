@@ -7,6 +7,14 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// App-wide key/value settings toggled from the admin panel
+// (e.g. whether the storefront shows a member their account balance).
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
 // Gym staff who use the admin panel.
 model Admin {
   id           Int      @id @default(autoincrement())

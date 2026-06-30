@@ -16,8 +16,8 @@ const { t } = useI18n();
     </div>
 
     <header class="top">
-      <img class="mark" src="/logo.jpg" alt="Spotter" />
-      <span class="wordmark">SPOTTER</span>
+      <img class="mark" src="/logo.jpg" alt="SD Fitness" />
+      <span class="wordmark">SD FITNESS</span>
       <LangToggle class="top-lang" />
     </header>
 

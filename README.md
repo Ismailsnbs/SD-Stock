@@ -1,4 +1,4 @@
-# Spotter — Gym Stock & Sales
+# SD Fitness — Gym Stock & Sales
 
 A pnpm monorepo for running a gym's shop: an **admin panel** (stock, members, sales, reports) and a **mobile-first customer storefront** (guest buy or member login), backed by an **Express + Prisma + SQLite** API.
 

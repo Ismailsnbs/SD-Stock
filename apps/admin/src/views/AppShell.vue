@@ -28,9 +28,9 @@ function logout() {
   <div class="shell">
     <aside class="side" :class="{ open }">
       <div class="brand">
-        <img class="mark" src="/logo.jpg" alt="Spotter" />
+        <img class="mark" src="/logo.jpg" alt="SD Fitness" />
         <div class="brand-txt">
-          <div class="brand-name">SPOTTER</div>
+          <div class="brand-name">SD FITNESS</div>
           <div class="brand-sub">{{ t('nav.brandSub') }}</div>
         </div>
       </div>
@@ -52,8 +52,11 @@ function logout() {
 
       <div class="side-foot">
         <div class="who">
-          <div class="who-avatar num">{{ (auth.admin?.username || 'A')[0].toUpperCase() }}</div>
-          <div class="who-name">{{ auth.admin?.username }}</div>
+          <router-link to="/settings" class="who-link" active-class="active" :title="t('settings.title')" @click="open = false">
+            <div class="who-avatar num">{{ (auth.admin?.username || 'A')[0].toUpperCase() }}</div>
+            <div class="who-name">{{ auth.admin?.username }}</div>
+            <span class="who-cog" aria-hidden="true">⚙</span>
+          </router-link>
           <LangToggle class="who-lang" />
         </div>
         <button class="btn btn-ghost btn-sm logout" @click="logout">{{ t('nav.signOut') }}</button>
@@ -65,8 +68,8 @@ function logout() {
     <div class="main">
       <header class="topbar">
         <button class="burger" @click="open = !open" aria-label="Menu">☰</button>
-        <img class="mark sm" src="/logo.jpg" alt="Spotter" />
-        <span class="topbar-name">SPOTTER</span>
+        <img class="mark sm" src="/logo.jpg" alt="SD Fitness" />
+        <span class="topbar-name">SD FITNESS</span>
       </header>
       <main class="content">
         <router-view />
@@ -102,8 +105,15 @@ function logout() {
 
 .side-foot { padding: 14px; border-top: 1px solid var(--line-dark); }
 .who { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.who-link {
+  display: flex; align-items: center; gap: 10px; text-decoration: none; color: inherit;
+  border-radius: 9px; padding: 4px 6px; margin: -4px -6px; transition: background 0.12s, color 0.12s;
+}
+.who-link:hover, .who-link.active { background: var(--graphite-2); color: #fff; }
+.who-link:hover .who-cog { color: var(--orange); }
 .who-avatar { width: 32px; height: 32px; border-radius: 999px; background: var(--graphite-2); display: grid; place-items: center; font-weight: 700; font-size: 13px; }
 .who-name { font-weight: 600; font-size: 14px; }
+.who-cog { font-size: 13px; color: var(--txt-on-dark-soft); }
 .who-lang { margin-left: auto; }
 .logout { width: 100%; color: var(--txt-on-dark-soft); border-color: var(--line-dark); }
 .logout:hover { color: #fff; }

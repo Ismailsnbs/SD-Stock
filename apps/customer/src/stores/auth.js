@@ -6,10 +6,14 @@ import { api } from "../api.js";
 export const useAuth = defineStore("auth", {
   state: () => ({
     token: localStorage.getItem("gym_customer_token") || "",
-    customer: JSON.parse(localStorage.getItem("gym_customer_user") || "null")
+    customer: JSON.parse(localStorage.getItem("gym_customer_user") || "null"),
+    finance: null,
+    showBalance: false
   }),
   getters: {
-    isLoggedIn: (s) => !!s.token && !!s.customer
+    isLoggedIn: (s) => !!s.token && !!s.customer,
+    // Member's spendable balance: positive = wallet credit, negative = debt owed.
+    netBalance: (s) => -(s.finance?.balance ?? 0)
   },
   actions: {
     async login(loginId, password) {
@@ -22,12 +26,14 @@ export const useAuth = defineStore("auth", {
       localStorage.setItem("gym_customer_token", token);
       localStorage.setItem("gym_customer_user", JSON.stringify(customer));
     },
-    // Validate a persisted token on app start; silently log out if it's gone stale.
+    // Validate a persisted token on app start (and refresh balance); log out if stale.
     async refresh() {
       if (!this.token) return;
       try {
         const { data } = await api.get("/auth/customer/me");
         this._set(this.token, data.customer);
+        this.finance = data.finance ?? null;
+        this.showBalance = !!data.settings?.showCustomerBalance;
       } catch {
         this.logout();
       }
@@ -35,6 +41,8 @@ export const useAuth = defineStore("auth", {
     logout() {
       this.token = "";
       this.customer = null;
+      this.finance = null;
+      this.showBalance = false;
       localStorage.removeItem("gym_customer_token");
       localStorage.removeItem("gym_customer_user");
     }

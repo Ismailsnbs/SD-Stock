@@ -7,6 +7,7 @@ import { customersRouter } from "./routes/customers.js";
 import { productsRouter } from "./routes/products.js";
 import { salesRouter } from "./routes/sales.js";
 import { reportsRouter } from "./routes/reports.js";
+import { settingsRouter } from "./routes/settings.js";
 
 const app = express();
 app.use(cors());
@@ -19,6 +20,7 @@ app.use("/api/customers", customersRouter);
 app.use("/api/products", productsRouter);
 app.use("/api/sales", salesRouter);
 app.use("/api/reports", reportsRouter);
+app.use("/api/settings", settingsRouter);
 
 // Uniform JSON 404 + error handling.
 app.use((req, res) => res.status(404).json({ error: "Not found." }));

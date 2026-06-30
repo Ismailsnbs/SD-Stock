@@ -34,7 +34,7 @@ async function submit() {
     </header>
 
     <div class="head">
-      <img class="mark" src="/logo.jpg" alt="Spotter" />
+      <img class="mark" src="/logo.jpg" alt="SD Fitness" />
       <div class="eyebrow">{{ t('login.eyebrow') }}</div>
       <h1>{{ t('login.title') }}</h1>
       <p>{{ t('login.sub') }}</p>

@@ -54,7 +54,7 @@ const messages = {
     sales: {
       eyebrow: "Hareketler", title: "Satışlar", export: "↓ Excel'e aktar",
       filteredBy: "Üyeye göre filtreli", overall: "Toplam", balance: "Bakiye", recordPayment: "Ödeme al", clear: "Temizle ✕",
-      member: "Üye", allMembers: "Tüm üyeler", from: "Başlangıç", to: "Bitiş", resetDates: "Tarihleri sıfırla",
+      member: "Üye", allMembers: "Tüm üyeler", searchMember: "Üye ara…", noMatch: "\"{q}\" ile eşleşen üye yok", from: "Başlangıç", to: "Bitiş", resetDates: "Tarihleri sıfırla",
       typeAll: "Tümü", typeSales: "Satışlar", typePayments: "Ödemeler",
       paymentLabel: "Ödeme", collected: "tahsilat",
       countSales: "satış", countUnits: "adet",
@@ -89,6 +89,23 @@ const messages = {
       added: "{n} eklendi", updated: "{n} güncellendi", skipped: "{n} atlandı", andMore: "…ve {n} tane daha",
       tplDownloaded: "Şablon indirildi.", tplFailed: "Şablon indirilemedi.",
       importedToast: "İçe aktarıldı — {created} eklendi, {updated} güncellendi.", importFailed: "İçe aktarma başarısız."
+    },
+    settings: {
+      eyebrow: "Hesap", title: "Ayarlar",
+      profile: "Profil bilgileri", username: "Kullanıcı adı",
+      changePassword: "Şifre değiştir",
+      passwordHint: "Şifreni değiştirmek istemiyorsan bu alanları boş bırak.",
+      currentPassword: "Mevcut şifre", newPassword: "Yeni şifre", confirmPassword: "Yeni şifre (tekrar)",
+      save: "Değişiklikleri kaydet", saving: "Kaydediliyor…", saved: "Profil güncellendi.",
+      storefront: "Mağaza",
+      showBalance: "Üyeye bakiyesini göster",
+      showBalanceHint: "Açıkken üye mağazaya girdiğinde bakiyesi başlıkta görünür.",
+      settingSaved: "Ayar kaydedildi.", settingFailed: "Ayar kaydedilemedi.",
+      errUsername: "Kullanıcı adı boş olamaz.",
+      errCurrentRequired: "Şifreyi değiştirmek için mevcut şifreni gir.",
+      errMismatch: "Yeni şifreler eşleşmiyor.",
+      errNothing: "Değiştirilecek bir şey yok.",
+      saveFailed: "Profil kaydedilemedi."
     },
     common: { loading: "Yükleniyor…" }
   },
@@ -143,7 +160,7 @@ const messages = {
     sales: {
       eyebrow: "Activity", title: "Sales", export: "↓ Export Excel",
       filteredBy: "Filtered by member", overall: "Overall", balance: "Balance", recordPayment: "Record payment", clear: "Clear ✕",
-      member: "Member", allMembers: "All members", from: "From", to: "To", resetDates: "Reset dates",
+      member: "Member", allMembers: "All members", searchMember: "Search member…", noMatch: "No member matches \"{q}\"", from: "From", to: "To", resetDates: "Reset dates",
       typeAll: "All", typeSales: "Sales", typePayments: "Payments",
       paymentLabel: "Payment", collected: "collected",
       countSales: "sales", countUnits: "units",
@@ -178,6 +195,23 @@ const messages = {
       added: "{n} added", updated: "{n} updated", skipped: "{n} skipped", andMore: "…and {n} more",
       tplDownloaded: "Template downloaded.", tplFailed: "Could not download the template.",
       importedToast: "Imported — {created} added, {updated} updated.", importFailed: "Import failed."
+    },
+    settings: {
+      eyebrow: "Account", title: "Settings",
+      profile: "Profile details", username: "Username",
+      changePassword: "Change password",
+      passwordHint: "Leave these blank if you don't want to change your password.",
+      currentPassword: "Current password", newPassword: "New password", confirmPassword: "Confirm new password",
+      save: "Save changes", saving: "Saving…", saved: "Profile updated.",
+      storefront: "Storefront",
+      showBalance: "Show members their balance",
+      showBalanceHint: "When on, a member sees their balance in the shop header.",
+      settingSaved: "Setting saved.", settingFailed: "Couldn't save the setting.",
+      errUsername: "Username can't be empty.",
+      errCurrentRequired: "Enter your current password to change it.",
+      errMismatch: "New passwords don't match.",
+      errNothing: "Nothing to change.",
+      saveFailed: "Couldn't save your profile."
     },
     common: { loading: "Loading…" }
   }

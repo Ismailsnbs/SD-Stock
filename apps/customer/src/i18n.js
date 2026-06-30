@@ -21,6 +21,7 @@ const messages = {
     shop: {
       quickBuy: "Hızlı al",
       title: "Mağaza",
+      balance: "Bakiye",
       search: "Ürün ara…",
       loading: "Ürünler yükleniyor…",
       empty: "Ürün bulunamadı.",
@@ -91,6 +92,7 @@ const messages = {
     shop: {
       quickBuy: "Quick buy",
       title: "Shop",
+      balance: "Balance",
       search: "Search products…",
       loading: "Loading products…",
       empty: "No products found.",

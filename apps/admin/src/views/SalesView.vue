@@ -29,8 +29,19 @@ const to = ref(defaultTo());
 const customerId = ref(route.query.customerId ? Number(route.query.customerId) : null);
 const customerName = ref(route.query.name || "");
 const member = ref(null); // finance detail when filtered by a member
-const members = ref([]); // dropdown options
+const members = ref([]); // combobox options
 const type = ref("all"); // all | sale | payment
+
+// Customer filter combobox (type to search by name).
+const memberQuery = ref("");
+const comboOpen = ref(false);
+const filteredMembers = computed(() => {
+  const q = memberQuery.value.trim().toLowerCase();
+  const list = q ? members.value.filter((m) => m.label.toLowerCase().includes(q)) : members.value;
+  return list.slice(0, 30);
+});
+// Initial shown in the avatar once a member is selected.
+const memberInitial = computed(() => (memberQuery.value.trim()[0] || "?").toUpperCase());
 
 const money = (n) => `₺${Number(n || 0).toLocaleString("tr-TR", { maximumFractionDigits: 2 })}`;
 const when = (iso) => new Date(iso).toLocaleString("tr-TR", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -79,6 +90,7 @@ async function loadMember() {
     const { data } = await api.get(`/customers/${customerId.value}`);
     member.value = data;
     customerName.value = `${data.name} ${data.surname}`;
+    memberQuery.value = `${data.name} ${data.surname} · ${data.loginId}`;
   } catch { member.value = null; }
 }
 
@@ -86,24 +98,41 @@ async function loadMembers() {
   try {
     const { data } = await api.get("/customers");
     members.value = data
-      .map((c) => ({ id: c.id, label: `${c.name} ${c.surname} · ${c.loginId}` }))
-      .sort((a, b) => a.label.localeCompare(b.label));
+      .map((c) => ({ id: c.id, name: `${c.name} ${c.surname}`, loginId: c.loginId, label: `${c.name} ${c.surname} · ${c.loginId}` }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   } catch { /* dropdown stays empty */ }
 }
 
 onMounted(() => { load(); loadMember(); loadMembers(); });
 watch([from, to, type], load);
 
-// Switching the member from the dropdown (or clearing it).
+// Switching the member from the combobox (or clearing it).
 function onMemberChange() {
   router.replace({ name: "sales", query: customerId.value ? { customerId: customerId.value } : {} });
   loadMember();
   load();
 }
+function pickMember(m) {
+  customerId.value = m.id;
+  memberQuery.value = m.label;
+  comboOpen.value = false;
+  onMemberChange();
+}
+function onComboInput() {
+  // typing invalidates the current selection until a member is picked again
+  comboOpen.value = true;
+  if (customerId.value) {
+    customerId.value = null;
+    member.value = null;
+    customerName.value = "";
+    onMemberChange();
+  }
+}
 function clearMember() {
   customerId.value = null;
   customerName.value = "";
   member.value = null;
+  memberQuery.value = "";
   onMemberChange();
 }
 
@@ -191,10 +220,40 @@ const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-re
     <div class="filters card">
       <div class="f f-member">
         <label>{{ t('sales.member') }}</label>
-        <select v-model="customerId" @change="onMemberChange">
-          <option :value="null">{{ t('sales.allMembers') }}</option>
-          <option v-for="m in members" :key="m.id" :value="m.id">{{ m.label }}</option>
-        </select>
+        <div class="combo" :class="{ open: comboOpen }">
+          <span v-if="customerId" class="combo-avatar">{{ memberInitial }}</span>
+          <span v-else class="combo-ic" aria-hidden="true">⌕</span>
+          <input
+            v-model="memberQuery"
+            class="combo-input"
+            :class="{ picked: customerId }"
+            :placeholder="t('sales.searchMember')"
+            autocomplete="off"
+            @focus="comboOpen = true"
+            @input="onComboInput"
+            @blur="comboOpen = false"
+          />
+          <button v-if="customerId || memberQuery" class="combo-clear" @mousedown.prevent="clearMember" aria-label="Clear">×</button>
+          <ul v-if="comboOpen && filteredMembers.length" class="combo-list">
+            <li
+              v-for="m in filteredMembers"
+              :key="m.id"
+              class="combo-opt"
+              :class="{ active: m.id === customerId }"
+              @mousedown.prevent="pickMember(m)"
+            >
+              <span class="opt-avatar">{{ m.name[0] }}</span>
+              <span class="opt-text">
+                <span class="opt-name">{{ m.name }}</span>
+                <span class="opt-id num">{{ m.loginId }}</span>
+              </span>
+              <span v-if="m.id === customerId" class="opt-check" aria-hidden="true">✓</span>
+            </li>
+          </ul>
+          <p v-if="comboOpen && memberQuery && !filteredMembers.length" class="combo-empty">
+            {{ t('sales.noMatch', { q: memberQuery }) }}
+          </p>
+        </div>
       </div>
       <div class="f">
         <label>{{ t('sales.from') }}</label>
@@ -218,11 +277,11 @@ const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-re
       <table class="data">
         <thead>
           <tr>
-            <th>{{ t('sales.colWhen') }}</th>
-            <th>{{ t('sales.colMember') }}</th>
-            <th>{{ t('sales.colItems') }}</th>
-            <th>{{ t('sales.colVia') }}</th>
-            <th class="right">{{ t('sales.colTotal') }}</th>
+            <th class="nowrap">{{ t('sales.colWhen') }}</th>
+            <th class="nowrap">{{ t('sales.colMember') }}</th>
+            <th class="col-grow">{{ t('sales.colItems') }}</th>
+            <th class="nowrap">{{ t('sales.colVia') }}</th>
+            <th class="right nowrap">{{ t('sales.colTotal') }}</th>
           </tr>
         </thead>
         <tbody>
@@ -231,10 +290,10 @@ const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-re
           <tr v-for="s in sales" :key="s.id" :class="{ payrow: s.kind === 'payment' }">
             <td class="num nowrap">{{ when(s.createdAt) }}</td>
             <td class="strong">{{ s.customerName }}</td>
-            <td class="items">
-              <template v-if="s.kind === 'sale'">
+            <td class="col-grow">
+              <div v-if="s.kind === 'sale'" class="items">
                 <span v-for="i in s.items" :key="i.id" class="item-chip">{{ i.productName }} <b class="num">×{{ i.quantity }}</b></span>
-              </template>
+              </div>
               <span v-else class="pay-note">{{ s.note || '—' }}</span>
             </td>
             <td>
@@ -315,7 +374,53 @@ const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-re
 .filters { display: flex; align-items: flex-end; gap: 14px; padding: 16px 20px; margin-bottom: 14px; flex-wrap: wrap; }
 .f label { margin-bottom: 6px; }
 .f input { width: 160px; }
-.f-member select { width: 240px; }
+.f-member { width: 260px; }
+.combo { position: relative; }
+/* override the generic `.f input { width:160px }` so the field fills the combo */
+.f-member .combo-input { width: 100%; padding-left: 40px; padding-right: 36px; text-overflow: ellipsis; }
+.combo-input.picked { border-color: var(--steel); font-weight: 600; }
+.combo-input.picked:focus { box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15); }
+.combo-ic {
+  position: absolute; left: 13px; top: 50%; transform: translateY(-50%);
+  color: var(--txt-faint); font-size: 18px; line-height: 1; pointer-events: none;
+}
+.combo-avatar {
+  position: absolute; left: 8px; top: 50%; transform: translateY(-50%);
+  width: 26px; height: 26px; border-radius: 999px; background: var(--steel); color: #fff;
+  display: grid; place-items: center; font-size: 12px; font-weight: 800; pointer-events: none;
+}
+.combo-clear {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 26px; height: 26px; border-radius: 8px; display: grid; place-items: center;
+  background: none; border: none; color: var(--txt-faint); font-size: 18px; line-height: 1; cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.combo-clear:hover { background: var(--chalk); color: var(--red); }
+.combo-list {
+  list-style: none; margin: 8px 0 0; padding: 6px; max-height: 300px; overflow-y: auto;
+  background: var(--paper); border: 1.5px solid var(--line); border-radius: 14px; box-shadow: var(--shadow-pop);
+  position: absolute; left: 0; right: 0; top: calc(100% + 8px); z-index: 30;
+}
+.combo-opt {
+  display: flex; align-items: center; gap: 11px; padding: 8px 10px; border-radius: 10px;
+  cursor: pointer; white-space: nowrap; transition: background 0.1s;
+}
+.combo-opt:hover { background: var(--chalk); }
+.combo-opt.active { background: #eef4fe; }
+.opt-avatar {
+  flex-shrink: 0; width: 30px; height: 30px; border-radius: 999px; background: var(--chalk);
+  color: var(--txt-soft); display: grid; place-items: center; font-size: 13px; font-weight: 800; text-transform: uppercase;
+}
+.combo-opt.active .opt-avatar { background: var(--steel); color: #fff; }
+.opt-text { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.opt-name { font-weight: 700; font-size: 14px; overflow: hidden; text-overflow: ellipsis; }
+.opt-id { font-size: 12px; color: var(--txt-faint); }
+.opt-check { margin-left: auto; color: var(--steel); font-weight: 800; }
+.combo-empty {
+  position: absolute; left: 0; right: 0; top: calc(100% + 8px); z-index: 30; margin: 0;
+  background: var(--paper); border: 1.5px solid var(--line); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 12px 14px; font-size: 13px; color: var(--txt-soft); font-weight: 600;
+}
 .clearf { margin-bottom: 1px; }
 .summary { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 13.5px; color: var(--txt-soft); }
 .summary b { color: var(--txt); }
@@ -326,7 +431,9 @@ const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-re
 .muted { color: var(--txt-faint); }
 .strong { font-weight: 700; }
 .nowrap { white-space: nowrap; }
-.items { display: flex; flex-wrap: wrap; gap: 6px; max-width: 380px; }
+/* the items column soaks up the remaining width so Kanal/Tutar hug the right edge */
+.col-grow { width: 100%; }
+.items { display: flex; flex-wrap: wrap; gap: 6px; }
 .item-chip { background: #f2f0ea; border-radius: 6px; padding: 3px 8px; font-size: 12.5px; }
 .payrow td { background: #f3faf5; }
 .pay-note { font-size: 13px; color: var(--txt-soft); font-style: italic; }

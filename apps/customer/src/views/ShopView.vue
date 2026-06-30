@@ -29,6 +29,14 @@ const comboOpen = ref(false);
 
 const money = (n) => `₺${Number(n).toLocaleString("tr-TR")}`;
 
+// Member balance chip (admin-toggleable). Positive = wallet credit, negative = debt.
+const showBalance = computed(() => auth.isLoggedIn && auth.showBalance);
+const balancePositive = computed(() => auth.netBalance >= 0);
+const balanceLabel = computed(() => {
+  const v = auth.netBalance;
+  return v < 0 ? `−${money(Math.abs(v))}` : money(v);
+});
+
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
   return q ? products.value.filter((p) => p.name.toLowerCase().includes(q)) : products.value;
@@ -54,7 +62,7 @@ async function loadMembers() {
   } catch { /* picker stays empty; front desk can help */ }
 }
 
-onMounted(() => { load(); loadMembers(); });
+onMounted(() => { load(); loadMembers(); if (auth.isLoggedIn) auth.refresh(); });
 
 const filteredMembers = computed(() => {
   const q = memberQuery.value.trim().toLowerCase();
@@ -110,6 +118,7 @@ async function placeOrder() {
     selectedMember.value = null;
     memberQuery.value = "";
     load();
+    if (auth.isLoggedIn) auth.refresh(); // reflect the new balance in the header
   } catch (e) {
     toast.err(apiError(e, t("shop.checkoutFailed")));
   } finally {
@@ -126,6 +135,13 @@ async function placeOrder() {
         <span class="eyebrow">{{ auth.isLoggedIn ? auth.customer.name : t('shop.quickBuy') }}</span>
         <h2>{{ t('shop.title') }}</h2>
       </div>
+      <router-link
+        v-if="showBalance"
+        to="/account"
+        class="balance-chip num"
+        :class="{ neg: !balancePositive }"
+        :aria-label="t('shop.balance')"
+      >{{ balanceLabel }}</router-link>
       <button v-if="auth.isLoggedIn" class="icon-btn" @click="router.push('/account')" aria-label="Account">◉</button>
       <button v-else class="icon-btn" @click="router.push('/login')" aria-label="Login">⤓</button>
     </header>
@@ -248,6 +264,12 @@ async function placeOrder() {
 .shop { min-height: 100vh; padding-bottom: calc(120px + var(--sab)); }
 .bar { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px; padding: calc(12px + var(--sat)) 18px 12px; background: var(--chalk); }
 .icon-btn { width: 42px; height: 42px; border-radius: 12px; background: var(--paper); border: 1.5px solid var(--line); font-size: 18px; display: grid; place-items: center; color: var(--txt); }
+.balance-chip {
+  display: inline-flex; align-items: center; height: 42px; padding: 0 14px; border-radius: 12px;
+  font-weight: 800; font-size: 15px; text-decoration: none; white-space: nowrap;
+  background: #e8f5ec; color: #1a7f4b; border: 1.5px solid #cfe9d8;
+}
+.balance-chip.neg { background: #fdecec; color: var(--red); border-color: #f3d3d4; }
 .bar-title { flex: 1; }
 .bar-title h2 { font-size: 24px; font-weight: 900; }
 

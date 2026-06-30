@@ -11,7 +11,8 @@ const routes = [
       { path: "stock", name: "stock", component: () => import("./views/StockView.vue") },
       { path: "customers", name: "customers", component: () => import("./views/CustomersView.vue") },
       { path: "sales", name: "sales", component: () => import("./views/SalesView.vue") },
-      { path: "reports", name: "reports", component: () => import("./views/ReportsView.vue") }
+      { path: "reports", name: "reports", component: () => import("./views/ReportsView.vue") },
+      { path: "settings", name: "settings", component: () => import("./views/SettingsView.vue") }
     ]
   }
 ];
