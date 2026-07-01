@@ -35,8 +35,7 @@ async function submit() {
         <div v-for="n in 36" :key="n" class="plate"></div>
       </div>
       <div class="art-copy">
-        <img class="mark" src="/logo.svg" alt="SD Fitness" />
-        <h1>SD FITNESS</h1>
+        <img class="art-logo" src="/logo-light.svg" alt="SD Fitness" />
         <p>{{ t('login.tagline') }}</p>
       </div>
     </div>
@@ -77,8 +76,7 @@ async function submit() {
 .plate { aspect-ratio: 1; border: 2px solid var(--graphite-2); border-radius: 50%; }
 .plate:nth-child(3n) { border-color: rgba(255,90,31,0.5); }
 .art-copy { position: relative; text-align: center; color: #fff; padding: 40px; }
-.art-copy .mark { width: 56px; height: 56px; border-radius: 14px; object-fit: cover; display: block; margin: 0 auto 20px; }
-.art-copy h1 { font-family: var(--font-display); font-weight: 900; font-size: 46px; letter-spacing: 0.14em; }
+.art-copy .art-logo { width: 100%; max-width: 340px; height: auto; display: block; margin: 0 auto 8px; }
 .art-copy p { color: var(--txt-on-dark-soft); max-width: 320px; margin: 14px auto 0; font-size: 15px; }
 
 .auth-form { display: grid; place-items: center; padding: 24px; background: var(--chalk); }

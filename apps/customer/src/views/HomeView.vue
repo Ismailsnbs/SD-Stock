@@ -16,8 +16,7 @@ const { t } = useI18n();
     </div>
 
     <header class="top">
-      <img class="mark" src="/logo.svg" alt="SD Fitness" />
-      <span class="wordmark">SD FITNESS</span>
+      <img class="brand-logo" src="/logo.svg" alt="SD Fitness" />
       <LangToggle class="top-lang" />
     </header>
 
@@ -75,8 +74,7 @@ const { t } = useI18n();
 .home > * { position: relative; z-index: 1; }
 
 .top { display: flex; align-items: center; gap: 10px; }
-.mark { width: 40px; height: 40px; border-radius: 11px; object-fit: cover; display: block; }
-.wordmark { font-family: var(--font-display); font-weight: 900; letter-spacing: 0.14em; font-size: 17px; }
+.brand-logo { height: 30px; width: auto; display: block; }
 .top-lang { margin-left: auto; }
 
 .hero { margin-top: auto; padding: 40px 0 32px; }

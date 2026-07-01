@@ -68,7 +68,7 @@ async function submit() {
 .bar { margin-bottom: 8px; }
 .icon-btn { width: 42px; height: 42px; border-radius: 12px; background: var(--paper); border: 1.5px solid var(--line); font-size: 18px; display: grid; place-items: center; }
 .head { margin: 24px 0 28px; }
-.mark { width: 52px; height: 52px; border-radius: 14px; object-fit: cover; display: block; margin-bottom: 22px; }
+.mark { height: 40px; width: auto; display: block; margin-bottom: 22px; }
 .head h1 { font-size: 38px; font-weight: 900; margin: 10px 0 8px; }
 .head p { color: var(--txt-soft); font-size: 15px; margin: 0; max-width: 300px; }
 .form { display: flex; flex-direction: column; gap: 16px; }

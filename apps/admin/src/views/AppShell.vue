@@ -28,11 +28,8 @@ function logout() {
   <div class="shell">
     <aside class="side" :class="{ open }">
       <div class="brand">
-        <img class="mark" src="/logo.svg" alt="SD Fitness" />
-        <div class="brand-txt">
-          <div class="brand-name">SD FITNESS</div>
-          <div class="brand-sub">{{ t('nav.brandSub') }}</div>
-        </div>
+        <img class="brand-logo" src="/logo-light.svg" alt="SD Fitness" />
+        <div class="brand-sub">{{ t('nav.brandSub') }}</div>
       </div>
 
       <nav class="menu">
@@ -68,8 +65,7 @@ function logout() {
     <div class="main">
       <header class="topbar">
         <button class="burger" @click="open = !open" aria-label="Menu">☰</button>
-        <img class="mark sm" src="/logo.svg" alt="SD Fitness" />
-        <span class="topbar-name">SD FITNESS</span>
+        <img class="topbar-logo" src="/logo-light.svg" alt="SD Fitness" />
       </header>
       <main class="content">
         <router-view />
@@ -85,11 +81,8 @@ function logout() {
   width: 244px; flex-shrink: 0; background: var(--ink); color: var(--txt-on-dark);
   display: flex; flex-direction: column; position: sticky; top: 0; height: 100vh;
 }
-.brand { display: flex; align-items: center; gap: 12px; padding: 22px 20px 18px; }
-.mark {
-  width: 38px; height: 38px; border-radius: 10px; object-fit: cover; display: block;
-}
-.brand-name { font-family: var(--font-display); font-weight: 900; letter-spacing: 0.08em; font-size: 16px; }
+.brand { display: flex; flex-direction: column; align-items: flex-start; gap: 8px; padding: 24px 20px 18px; }
+.brand-logo { width: 100%; max-width: 190px; height: auto; display: block; }
 .brand-sub { font-size: 11px; color: var(--txt-on-dark-soft); letter-spacing: 0.04em; }
 
 .menu { display: flex; flex-direction: column; gap: 3px; padding: 8px 12px; flex: 1; }
@@ -136,8 +129,7 @@ function logout() {
     color: #fff; position: sticky; top: 0; z-index: 40;
   }
   .burger { background: none; border: none; color: #fff; font-size: 22px; }
-  .mark.sm { width: 30px; height: 30px; font-size: 16px; }
-  .topbar-name { font-family: var(--font-display); font-weight: 900; letter-spacing: 0.08em; }
+  .topbar-logo { height: 26px; width: auto; display: block; }
   .content { padding: 18px 16px 64px; }
 }
 </style>
