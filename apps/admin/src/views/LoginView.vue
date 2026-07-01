@@ -35,7 +35,7 @@ async function submit() {
         <div v-for="n in 36" :key="n" class="plate"></div>
       </div>
       <div class="art-copy">
-        <img class="mark" src="/logo.jpg" alt="SD Fitness" />
+        <img class="mark" src="/logo.svg" alt="SD Fitness" />
         <h1>SD FITNESS</h1>
         <p>{{ t('login.tagline') }}</p>
       </div>

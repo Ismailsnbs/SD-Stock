@@ -28,7 +28,7 @@ function logout() {
   <div class="shell">
     <aside class="side" :class="{ open }">
       <div class="brand">
-        <img class="mark" src="/logo.jpg" alt="SD Fitness" />
+        <img class="mark" src="/logo.svg" alt="SD Fitness" />
         <div class="brand-txt">
           <div class="brand-name">SD FITNESS</div>
           <div class="brand-sub">{{ t('nav.brandSub') }}</div>
@@ -68,7 +68,7 @@ function logout() {
     <div class="main">
       <header class="topbar">
         <button class="burger" @click="open = !open" aria-label="Menu">☰</button>
-        <img class="mark sm" src="/logo.jpg" alt="SD Fitness" />
+        <img class="mark sm" src="/logo.svg" alt="SD Fitness" />
         <span class="topbar-name">SD FITNESS</span>
       </header>
       <main class="content">
