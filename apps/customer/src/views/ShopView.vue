@@ -42,6 +42,13 @@ const filtered = computed(() => {
   return q ? products.value.filter((p) => p.name.toLowerCase().includes(q)) : products.value;
 });
 
+// Membership warning: expired, or ending within 5 days.
+const mshipDays = computed(() =>
+  auth.isLoggedIn && auth.customer?.membershipEnd
+    ? Math.ceil((new Date(auth.customer.membershipEnd) - Date.now()) / 86400000)
+    : null
+);
+
 async function load() {
   loading.value = true;
   try {
@@ -135,6 +142,7 @@ async function placeOrder() {
         <span class="eyebrow">{{ auth.isLoggedIn ? auth.customer.name : t('shop.quickBuy') }}</span>
         <h2>{{ t('shop.title') }}</h2>
       </div>
+      <span v-if="mshipDays !== null && mshipDays > 0 && mshipDays <= 5" class="mship-chip num">⏳ {{ t('shop.mshipEnding', { n: mshipDays }) }}</span>
       <router-link
         v-if="showBalance"
         to="/account"
@@ -148,6 +156,11 @@ async function placeOrder() {
 
     <div class="search-wrap">
       <input v-model="search" :placeholder="t('shop.search')" />
+    </div>
+
+    <div v-if="mshipDays !== null && mshipDays <= 0" class="mship-warn expired">
+      <span aria-hidden="true">⚠</span>
+      {{ t('shop.mshipExpired') }}
     </div>
 
     <div v-if="loading" class="state">{{ t('shop.loading') }}</div>
@@ -276,6 +289,18 @@ async function placeOrder() {
 .search-wrap { padding: 4px 18px 12px; position: sticky; top: calc(66px + var(--sat)); z-index: 19; background: var(--chalk); }
 
 .state { text-align: center; color: var(--txt-faint); padding: 60px 20px; }
+
+.mship-warn {
+  display: flex; align-items: center; gap: 10px;
+  margin: 0 18px 12px; padding: 12px 14px; border-radius: 12px;
+  font-weight: 700; font-size: 13.5px; line-height: 1.4;
+}
+.mship-warn.expired { background: #fdecec; color: var(--red); border: 1.5px solid #f3d3d4; }
+.mship-chip {
+  display: inline-flex; align-items: center; gap: 5px; height: 42px; padding: 0 12px;
+  border-radius: 12px; white-space: nowrap; font-weight: 800; font-size: 13px;
+  background: #fdf3e2; color: #8a5a10; border: 1.5px solid #f3ddb5;
+}
 
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 18px; }
 .tile { background: var(--paper); border: 1.5px solid var(--line); border-radius: var(--r-lg); padding: 16px; display: flex; flex-direction: column; min-height: 150px; box-shadow: var(--shadow); }

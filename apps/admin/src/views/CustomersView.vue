@@ -111,15 +111,40 @@ async function save() {
   }
 }
 
-async function renew(c) {
-  if (!confirm(t("members.renewConfirm", { name: `${c.name} ${c.surname}`, month: endMonth(c) }))) return;
-  try {
-    const { data } = await api.post(`/customers/${c.id}/renew`);
-    toast.ok(t("members.renewed", { date: dateOnly(data.membershipEnd) }));
-    load();
-  } catch (e) {
-    toast.err(apiError(e, t("members.renewFailed")));
-  }
+// Approval modal for renew / undo: set message + action, run only on approve.
+const confirmBox = ref(null);
+function askConfirm(message, run) {
+  confirmBox.value = { message, run };
+}
+async function approveConfirm() {
+  const action = confirmBox.value;
+  confirmBox.value = null;
+  await action.run();
+}
+
+function renew(c) {
+  askConfirm(t("members.renewConfirm", { name: `${c.name} ${c.surname}`, month: endMonth(c) }), async () => {
+    try {
+      const { data } = await api.post(`/customers/${c.id}/renew`);
+      toast.ok(t("members.renewed", { date: dateOnly(data.membershipEnd) }));
+      load();
+    } catch (e) {
+      toast.err(apiError(e, t("members.renewFailed")));
+    }
+  });
+}
+
+function revertRenew(c) {
+  const newEnd = new Date(new Date(c.membershipEnd).getTime() - 30 * 86400000);
+  askConfirm(t("members.revertRenewConfirm", { name: `${c.name} ${c.surname}`, date: dateOnly(newEnd) }), async () => {
+    try {
+      const { data } = await api.post(`/customers/${c.id}/renew-revert`);
+      toast.ok(t("members.revertRenewed", { date: dateOnly(data.membershipEnd) }));
+      load();
+    } catch (e) {
+      toast.err(apiError(e, t("members.revertRenewFailed")));
+    }
+  });
 }
 
 async function remove(c) {
@@ -239,11 +264,8 @@ async function exportMembers() {
                 <span v-if="daysLeft(c) <= 0" class="pill pill-red">{{ t('members.expired') }}</span>
                 <span v-else-if="daysLeft(c) <= 5" class="pill pill-amber">{{ t('members.daysLeft', { n: daysLeft(c) }) }}</span>
                 <span v-else class="sub">{{ t('members.until', { date: dateOnly(c.membershipEnd) }) }}</span>
-                <button
-                  class="btn btn-sm renew-btn"
-                  :class="daysLeft(c) <= 5 ? 'btn-primary' : 'btn-ghost'"
-                  @click="renew(c)"
-                >{{ t('members.renew', { month: endMonth(c) }) }}</button>
+                <button class="btn btn-success btn-sm renew-btn" @click="renew(c)">{{ t('members.renew', { month: endMonth(c) }) }}</button>
+                <button class="btn btn-danger btn-sm renew-btn" @click="revertRenew(c)">↩ {{ t('members.revertRenew') }}</button>
               </div>
             </td>
             <td class="right num">{{ money(c.finance?.overall) }}</td>
@@ -332,6 +354,15 @@ async function exportMembers() {
         <button class="btn btn-primary" @click="submitPayment">{{ t('members.recordPayment') }}</button>
       </template>
     </Modal>
+
+    <!-- Approval modal (renew / undo renewal) -->
+    <Modal :open="!!confirmBox" :title="t('members.confirmTitle')" @close="confirmBox = null">
+      <p class="confirm-msg">{{ confirmBox?.message }}</p>
+      <template #footer>
+        <button class="btn btn-ghost" @click="confirmBox = null">{{ t('members.cancel') }}</button>
+        <button class="btn btn-primary" @click="approveConfirm">{{ t('members.confirm') }}</button>
+      </template>
+    </Modal>
   </div>
 </template>
 
@@ -351,6 +382,7 @@ async function exportMembers() {
 .strong { font-weight: 700; }
 .sub { font-size: 12px; color: var(--txt-faint); margin-top: 2px; }
 .mship { display: flex; align-items: center; gap: 8px; margin-top: 6px; white-space: nowrap; }
+.confirm-msg { font-size: 15px; line-height: 1.55; }
 .renew-btn { font-size: 11.5px; padding: 4px 10px; }
 .owe { color: var(--red); font-weight: 700; }
 .ok { color: var(--txt-faint); }

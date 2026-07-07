@@ -153,6 +153,21 @@ customersRouter.post("/:id/renew", requireAdmin, async (req, res) => {
   res.json(safe);
 });
 
+// Undo a renewal: take one 30-day package back off the period end.
+customersRouter.post("/:id/renew-revert", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const customer = await prisma.customer.findUnique({ where: { id } });
+  if (!customer) return res.status(404).json({ error: "Member not found." });
+  if (!customer.membershipEnd) return res.status(400).json({ error: "Member has no membership end date." });
+
+  const updated = await prisma.customer.update({
+    where: { id },
+    data: { membershipEnd: addDays(customer.membershipEnd, -PERIOD_DAYS) }
+  });
+  const { password: _pw, ...safe } = updated;
+  res.json(safe);
+});
+
 // Import an uploaded Excel. `mode=replace` clears the list first; default upserts.
 customersRouter.post("/import", requireAdmin, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Attach an Excel file to import." });

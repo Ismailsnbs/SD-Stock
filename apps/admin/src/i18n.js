@@ -52,6 +52,9 @@ const messages = {
       until: "→ {date}", expired: "Süresi doldu", daysLeft: "{n} gün kaldı",
       renew: "{month} ödemesini al", renewConfirm: "{name} — {month} ödemesi alındı olarak işaretlensin mi? Üyelik 30 gün uzatılır.",
       renewed: "Üyelik uzatıldı — yeni bitiş: {date}.", renewFailed: "Üyelik uzatılamadı.",
+      revertRenew: "Geri al", revertRenewConfirm: "{name} — son 30 günlük uzatma geri alınsın mı? Yeni bitiş tarihi: {date}.",
+      revertRenewed: "Uzatma geri alındı — yeni bitiş: {date}.", revertRenewFailed: "Uzatma geri alınamadı.",
+      confirmTitle: "Onay", confirm: "Onayla",
       loadFailed: "Üyeler yüklenemedi.", saveFailed: "Üye kaydedilemedi.", delFailed: "Üye silinemedi.",
       payFailed: "Ödeme kaydedilemedi.", delPayFailed: "Ödeme silinemedi.", exportFailed: "Dışa aktarma başarısız.", exported: "Üyeler dışa aktarıldı.", updateFailed: "Güncellenemedi."
     },
@@ -167,6 +170,9 @@ const messages = {
       until: "→ {date}", expired: "Expired", daysLeft: "{n} days left",
       renew: "Collect {month} payment", renewConfirm: "{name} — mark the {month} payment as collected? The membership is extended by 30 days.",
       renewed: "Membership extended — new end date: {date}.", renewFailed: "Could not extend the membership.",
+      revertRenew: "Undo", revertRenewConfirm: "{name} — undo the last 30-day extension? New end date: {date}.",
+      revertRenewed: "Extension undone — new end date: {date}.", revertRenewFailed: "Could not undo the extension.",
+      confirmTitle: "Confirm", confirm: "Approve",
       loadFailed: "Could not load members.", saveFailed: "Could not save the member.", delFailed: "Could not delete the member.",
       payFailed: "Could not record the payment.", delPayFailed: "Could not delete payment.", exportFailed: "Export failed.", exported: "Members exported.", updateFailed: "Could not update."
     },

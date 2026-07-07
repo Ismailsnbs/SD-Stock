@@ -65,8 +65,8 @@ function logout() {
           <div class="p-name">{{ auth.customer?.name }} {{ auth.customer?.surname }}</div>
           <div class="p-id num">ID · {{ auth.customer?.loginId }}</div>
           <div v-if="auth.customer?.membershipEnd" class="p-mship">
-            <span v-if="daysLeft <= 0" class="m-pill m-red">{{ t('account.expired') }}</span>
-            <span v-else-if="daysLeft <= 5" class="m-pill m-amber">{{ t('account.daysLeft', { n: daysLeft }) }}</span>
+            <span v-if="daysLeft <= 0" class="m-pill m-red">⚠ {{ t('account.expired') }}</span>
+            <span v-else-if="daysLeft <= 5" class="m-pill m-amber">⏳ {{ t('account.daysLeft', { n: daysLeft, date: dateOnly(auth.customer.membershipEnd) }) }}</span>
             <span v-else class="m-until">{{ t('account.membership') }} {{ t('account.until', { date: dateOnly(auth.customer.membershipEnd) }) }}</span>
           </div>
         </div>
@@ -124,7 +124,7 @@ function logout() {
 .p-id { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 2px; }
 .p-mship { margin-top: 7px; }
 .m-until { font-size: 13px; color: rgba(255,255,255,0.65); }
-.m-pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.m-pill { display: inline-block; font-size: 12.5px; font-weight: 700; padding: 5px 12px; border-radius: 10px; line-height: 1.45; }
 .m-red { background: rgba(229, 72, 77, 0.22); color: #ff8b8e; }
 .m-amber { background: rgba(245, 166, 35, 0.2); color: #ffc466; }
 

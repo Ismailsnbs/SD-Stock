@@ -28,6 +28,8 @@ const messages = {
       inStock: "Stokta",
       left: "{n} kaldı",
       soldOut: "Tükendi",
+      mshipExpired: "Üyeliğinin süresi doldu",
+      mshipEnding: "{n} gün",
       add: "Ekle",
       viewCart: "Sepeti gör",
       yourCart: "Sepetin",
@@ -73,8 +75,8 @@ const messages = {
       loadFailed: "Geçmiş yüklenemedi.",
       membership: "Üyelik",
       until: "→ {date}",
-      daysLeft: "{n} gün kaldı",
-      expired: "Süresi doldu"
+      daysLeft: "Üyeliğine {n} gün kaldı",
+      expired: "Üyeliğinin süresi doldu"
     },
     common: { back: "Geri", total: "Toplam" }
   },
@@ -103,6 +105,8 @@ const messages = {
       inStock: "In stock",
       left: "{n} left",
       soldOut: "Sold out",
+      mshipExpired: "Your membership has expired",
+      mshipEnding: "{n} days",
       add: "Add",
       viewCart: "View cart",
       yourCart: "Your cart",
@@ -148,8 +152,8 @@ const messages = {
       loadFailed: "Couldn't load history.",
       membership: "Membership",
       until: "→ {date}",
-      daysLeft: "{n} days left",
-      expired: "Expired"
+      daysLeft: "Your membership — {n} days left",
+      expired: "Your membership has expired"
     },
     common: { back: "Back", total: "Total" }
   }
