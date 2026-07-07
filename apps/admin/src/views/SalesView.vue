@@ -169,6 +169,19 @@ async function deletePayment(p) {
   }
 }
 
+// Revert a mistaken order: restores stock and removes the sale from history.
+async function revertSale(s) {
+  if (!confirm(t("sales.revertConfirm", { name: s.customerName, v: money(s.total) }))) return;
+  try {
+    await api.delete(`/sales/${s.saleId}`);
+    toast.ok(t("sales.reverted"));
+    if (customerId.value) await loadMember(); // balance in the banner self-corrects
+    load();
+  } catch (e) {
+    toast.err(apiError(e, t("sales.revertFailed")));
+  }
+}
+
 async function exportXlsx() {
   try {
     const qs = new URLSearchParams(params.value).toString();
@@ -282,11 +295,12 @@ const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-re
             <th class="col-grow">{{ t('sales.colItems') }}</th>
             <th class="nowrap">{{ t('sales.colVia') }}</th>
             <th class="right nowrap">{{ t('sales.colTotal') }}</th>
+            <th></th>
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="5" class="center muted">{{ t('sales.loading') }}</td></tr>
-          <tr v-else-if="!sales.length"><td colspan="5" class="center muted">{{ t('sales.empty') }}</td></tr>
+          <tr v-if="loading"><td colspan="6" class="center muted">{{ t('sales.loading') }}</td></tr>
+          <tr v-else-if="!sales.length"><td colspan="6" class="center muted">{{ t('sales.empty') }}</td></tr>
           <tr v-for="s in sales" :key="s.id" :class="{ payrow: s.kind === 'payment' }">
             <td class="num nowrap">{{ when(s.createdAt) }}</td>
             <td class="strong">{{ s.customerName }}</td>
@@ -302,6 +316,11 @@ const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-re
             </td>
             <td class="right num strong" :class="{ credit: s.kind === 'payment' }">
               {{ s.kind === 'payment' ? '+' + money(s.amount) : money(s.total) }}
+            </td>
+            <td class="right nowrap">
+              <button v-if="s.kind === 'sale'" class="revert-btn" :title="t('sales.revert')" @click="revertSale(s)">
+                ↩ {{ t('sales.revert') }}
+              </button>
             </td>
           </tr>
         </tbody>
@@ -437,6 +456,12 @@ const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-re
 .item-chip { background: #f2f0ea; border-radius: 6px; padding: 3px 8px; font-size: 12.5px; }
 .payrow td { background: #f3faf5; }
 .pay-note { font-size: 13px; color: var(--txt-soft); font-style: italic; }
+.revert-btn {
+  background: none; border: 1.5px solid var(--line); border-radius: 8px; padding: 4px 10px;
+  font-size: 12px; font-weight: 700; color: var(--txt-faint); cursor: pointer;
+  transition: color 0.12s, border-color 0.12s;
+}
+.revert-btn:hover { color: var(--red); border-color: var(--red); }
 .credit { color: var(--green); }
 .collected b { color: var(--green); }
 

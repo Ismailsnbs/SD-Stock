@@ -7,11 +7,11 @@
  * `id` is the login id the customer types on the storefront.
  */
 export const CUSTOMER_COLUMNS = [
-  { key: "id", header: "id", required: true, hint: "Login ID (unique)" },
-  { key: "password", header: "password", required: true, hint: "Login password" },
+  { key: "id", header: "id", required: true, text: true, hint: "Login ID (unique) — column is Text, so leading zeros like 0001 are kept" },
+  { key: "password", header: "password", required: true, text: true, hint: "Login password — column is Text, so leading zeros like 0001 are kept" },
   { key: "name", header: "name", required: true, hint: "First name" },
   { key: "surname", header: "surname", required: true, hint: "Last name" },
-  { key: "telephone", header: "telephone", required: false, hint: "Optional phone" },
+  { key: "telephone", header: "telephone", required: false, text: true, hint: "Optional phone — column is Text, so a leading 0 is kept" },
   { key: "membershipStart", header: "membershipStart", required: false, hint: "Optional join date (YYYY-MM-DD) — defaults to today" }
 ];
 

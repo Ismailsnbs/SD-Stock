@@ -5,6 +5,7 @@ import { prisma } from "../db.js";
 import { requireAdmin } from "../auth.js";
 import { customerTemplate, parseCustomers, exportCustomersWorkbook } from "../excel.js";
 import { computeMemberFinance } from "../finance.js";
+import { addDays, nextBoundary, PERIOD_DAYS } from "../membership.js";
 
 export const customersRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -80,6 +81,7 @@ customersRouter.get("/export", requireAdmin, async (req, res) => {
       name: `${c.name} ${c.surname}`,
       telephone: c.telephone || "",
       memberSince: c.membershipStart.toISOString().slice(0, 10),
+      memberUntil: c.membershipEnd ? c.membershipEnd.toISOString().slice(0, 10) : "",
       overall: f.overall,
       paid: f.totalPaid,
       balance: f.balance,
@@ -89,6 +91,17 @@ customersRouter.get("/export", requireAdmin, async (req, res) => {
   res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
   res.setHeader("Content-Disposition", 'attachment; filename="members.xlsx"');
   res.send(exportCustomersWorkbook(rows));
+});
+
+// Suggest the next numeric login ID (max existing number + 1) for the add form.
+customersRouter.get("/next-id", requireAdmin, async (req, res) => {
+  const customers = await prisma.customer.findMany({ select: { loginId: true } });
+  let max = 0;
+  for (const c of customers) {
+    const n = Number(c.loginId);
+    if (Number.isInteger(n) && n > max) max = n;
+  }
+  res.json({ nextId: String(max + 1) });
 });
 
 // One member: profile + finance + recent sales + payment history.
@@ -123,11 +136,48 @@ customersRouter.delete("/:id/payments/:paymentId", requireAdmin, async (req, res
   res.json({ ok: true });
 });
 
+// Renew the membership: one more 30-day package on top of the current period
+// end (not "today", so the member's cycle never shifts). Intentionally NOT
+// recorded as a Payment — renewals are collected outside the finance ledger.
+customersRouter.post("/:id/renew", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  const customer = await prisma.customer.findUnique({ where: { id } });
+  if (!customer) return res.status(404).json({ error: "Member not found." });
+
+  const base = customer.membershipEnd ?? nextBoundary(customer.membershipStart);
+  const updated = await prisma.customer.update({
+    where: { id },
+    data: { membershipEnd: addDays(base, PERIOD_DAYS) }
+  });
+  const { password: _pw, ...safe } = updated;
+  res.json(safe);
+});
+
 // Import an uploaded Excel. `mode=replace` clears the list first; default upserts.
 customersRouter.post("/import", requireAdmin, upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "Attach an Excel file to import." });
   const { rows, errors } = parseCustomers(req.file.buffer);
   if (!rows.length) return res.status(400).json({ error: "No valid rows found.", errors });
+
+  // Preflight: if the file contains IDs that already exist, ask the admin to
+  // confirm before overwriting those members (skipped in replace mode, which
+  // wipes the list anyway). The client retries with ?confirm=1.
+  if (req.query.mode !== "replace" && req.query.confirm !== "1") {
+    const existing = await prisma.customer.findMany({
+      where: { loginId: { in: rows.map((r) => r.loginId) } },
+      select: { loginId: true }
+    });
+    if (existing.length) {
+      const ids = existing
+        .map((e) => e.loginId)
+        .sort((a, b) => (Number(a) || Infinity) - (Number(b) || Infinity) || a.localeCompare(b));
+      return res.status(409).json({
+        requiresConfirmation: true,
+        existing: ids,
+        error: "Some IDs in the file already exist."
+      });
+    }
+  }
 
   if (req.query.mode === "replace") await prisma.customer.deleteMany({});
 
@@ -140,14 +190,18 @@ customersRouter.post("/import", requireAdmin, upload.single("file"), async (req,
       surname: r.surname,
       telephone: r.telephone,
       active: true,
-      ...(r.membershipStart ? { membershipStart: r.membershipStart } : {})
+      // A new start re-anchors the 30-day cycle; without one, an existing
+      // member's renewals must not be clobbered by a re-import.
+      ...(r.membershipStart ? { membershipStart: r.membershipStart, membershipEnd: nextBoundary(r.membershipStart) } : {})
     };
     const existing = await prisma.customer.findUnique({ where: { loginId: r.loginId } });
     if (existing) {
       await prisma.customer.update({ where: { loginId: r.loginId }, data });
       updated++;
     } else {
-      await prisma.customer.create({ data: { loginId: r.loginId, ...data } });
+      await prisma.customer.create({
+        data: { loginId: r.loginId, ...data, membershipEnd: data.membershipEnd ?? nextBoundary(new Date()) }
+      });
       created++;
     }
   }
@@ -163,6 +217,7 @@ customersRouter.post("/", requireAdmin, async (req, res) => {
   const exists = await prisma.customer.findUnique({ where: { loginId: String(loginId).trim() } });
   if (exists) return res.status(409).json({ error: "A member with this ID already exists." });
 
+  const start = membershipStart && !Number.isNaN(Date.parse(membershipStart)) ? new Date(membershipStart) : new Date();
   const customer = await prisma.customer.create({
     data: {
       loginId: String(loginId).trim(),
@@ -170,7 +225,8 @@ customersRouter.post("/", requireAdmin, async (req, res) => {
       name: name.trim(),
       surname: surname.trim(),
       telephone: telephone ? String(telephone).trim() : null,
-      ...(membershipStart && !Number.isNaN(Date.parse(membershipStart)) ? { membershipStart: new Date(membershipStart) } : {})
+      membershipStart: start,
+      membershipEnd: nextBoundary(start)
     }
   });
   const { password: _pw, ...safe } = customer;
@@ -186,7 +242,10 @@ customersRouter.put("/:id", requireAdmin, async (req, res) => {
   if (telephone !== undefined) data.telephone = telephone ? String(telephone).trim() : null;
   if (active !== undefined) data.active = Boolean(active);
   if (password) data.password = await bcrypt.hash(String(password), 10);
-  if (membershipStart && !Number.isNaN(Date.parse(membershipStart))) data.membershipStart = new Date(membershipStart);
+  if (membershipStart && !Number.isNaN(Date.parse(membershipStart))) {
+    data.membershipStart = new Date(membershipStart);
+    data.membershipEnd = nextBoundary(data.membershipStart); // new start re-anchors the cycle
+  }
 
   const customer = await prisma.customer.update({ where: { id }, data });
   const { password: _pw, ...safe } = customer;

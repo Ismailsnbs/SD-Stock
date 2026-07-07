@@ -31,7 +31,8 @@ model Customer {
   name            String
   surname         String
   telephone       String?
-  membershipStart DateTime  @default(now()) // join date — informational on the member card
+  membershipStart DateTime  @default(now()) // join date — anchors the 30-day package cycle
+  membershipEnd   DateTime? // paid-until date of the current 30-day package; null until backfilled
   active          Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt

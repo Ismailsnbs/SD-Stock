@@ -2,6 +2,7 @@ import "dotenv/config";
 import express from "express";
 import cors from "cors";
 
+import { backfillMembershipEnds } from "./membership.js";
 import { authRouter } from "./routes/auth.js";
 import { customersRouter } from "./routes/customers.js";
 import { productsRouter } from "./routes/products.js";
@@ -29,6 +30,9 @@ app.use((err, req, res, _next) => {
   if (err?.code === "P2002") return res.status(409).json({ error: "That record already exists." });
   res.status(500).json({ error: "Something went wrong on the server." });
 });
+
+// Members created before the renewal feature get their current cycle's end date.
+backfillMembershipEnds().catch((e) => console.error("membershipEnd backfill failed:", e));
 
 const PORT = process.env.PORT || 4000;
 app.listen(PORT, () => console.log(`gym-stock API listening on http://localhost:${PORT}`));

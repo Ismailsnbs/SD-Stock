@@ -9,7 +9,7 @@ import Modal from "../components/Modal.vue";
 
 const toast = useToast();
 const router = useRouter();
-const { t } = useI18n();
+const { t, locale } = useI18n();
 const customers = ref([]);
 const q = ref("");
 const loading = ref(true);
@@ -27,6 +27,10 @@ const payDetail = ref(null);
 
 const money = (n) => `₺${Number(n || 0).toLocaleString("tr-TR", { maximumFractionDigits: 0 })}`;
 const dateOnly = (iso) => (iso ? new Date(iso).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }) : "—");
+
+// Membership package: days until the paid period ends (<=0 expired, <=5 warn).
+const daysLeft = (c) => (c.membershipEnd ? Math.ceil((new Date(c.membershipEnd) - Date.now()) / 86400000) : null);
+const endMonth = (c) => new Date(c.membershipEnd).toLocaleDateString(locale.value === "tr" ? "tr-TR" : "en", { month: "long" });
 
 const statusPill = { clean: "pill-green", owing: "pill-amber", overdue: "pill-red", credit: "pill-steel" };
 
@@ -69,10 +73,15 @@ async function load() {
 }
 onMounted(load);
 
-function openAdd() {
+async function openAdd() {
   editing.value = null;
   form.value = { loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "" };
   showForm.value = true;
+  // Suggest the next ID in the sequence (max existing number + 1); still editable.
+  try {
+    const { data } = await api.get("/customers/next-id");
+    if (!editing.value && showForm.value && !form.value.loginId) form.value.loginId = data.nextId;
+  } catch { /* leave the field empty */ }
 }
 function openEdit(c) {
   editing.value = c;
@@ -99,6 +108,17 @@ async function save() {
     load();
   } catch (e) {
     toast.err(apiError(e, t("members.saveFailed")));
+  }
+}
+
+async function renew(c) {
+  if (!confirm(t("members.renewConfirm", { name: `${c.name} ${c.surname}`, month: endMonth(c) }))) return;
+  try {
+    const { data } = await api.post(`/customers/${c.id}/renew`);
+    toast.ok(t("members.renewed", { date: dateOnly(data.membershipEnd) }));
+    load();
+  } catch (e) {
+    toast.err(apiError(e, t("members.renewFailed")));
   }
 }
 
@@ -213,7 +233,19 @@ async function exportMembers() {
               {{ c.name }} {{ c.surname }}
               <div class="sub num">{{ c.telephone || t('members.noPhone') }}</div>
             </td>
-            <td class="num">{{ dateOnly(c.membershipStart) }}</td>
+            <td class="num">
+              {{ dateOnly(c.membershipStart) }}
+              <div v-if="c.membershipEnd" class="mship">
+                <span v-if="daysLeft(c) <= 0" class="pill pill-red">{{ t('members.expired') }}</span>
+                <span v-else-if="daysLeft(c) <= 5" class="pill pill-amber">{{ t('members.daysLeft', { n: daysLeft(c) }) }}</span>
+                <span v-else class="sub">{{ t('members.until', { date: dateOnly(c.membershipEnd) }) }}</span>
+                <button
+                  class="btn btn-sm renew-btn"
+                  :class="daysLeft(c) <= 5 ? 'btn-primary' : 'btn-ghost'"
+                  @click="renew(c)"
+                >{{ t('members.renew', { month: endMonth(c) }) }}</button>
+              </div>
+            </td>
             <td class="right num">{{ money(c.finance?.overall) }}</td>
             <td class="right num" :class="c.finance?.balance > 0 ? 'owe' : 'ok'">{{ money(c.finance?.balance) }}</td>
             <td>
@@ -318,6 +350,8 @@ async function exportMembers() {
 .muted { color: var(--txt-faint); }
 .strong { font-weight: 700; }
 .sub { font-size: 12px; color: var(--txt-faint); margin-top: 2px; }
+.mship { display: flex; align-items: center; gap: 8px; margin-top: 6px; white-space: nowrap; }
+.renew-btn { font-size: 11.5px; padding: 4px 10px; }
 .owe { color: var(--red); font-weight: 700; }
 .ok { color: var(--txt-faint); }
 .rowdanger td { background: #fdf6f6; }

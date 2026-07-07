@@ -26,6 +26,11 @@ const to = ref(defaultTo());
 
 const spent = computed(() => sales.value.reduce((a, s) => a + s.total, 0));
 
+const daysLeft = computed(() =>
+  auth.customer?.membershipEnd ? Math.ceil((new Date(auth.customer.membershipEnd) - Date.now()) / 86400000) : null
+);
+const dateOnly = (iso) => new Date(iso).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" });
+
 async function load() {
   loading.value = true;
   try {
@@ -59,6 +64,11 @@ function logout() {
         <div>
           <div class="p-name">{{ auth.customer?.name }} {{ auth.customer?.surname }}</div>
           <div class="p-id num">ID · {{ auth.customer?.loginId }}</div>
+          <div v-if="auth.customer?.membershipEnd" class="p-mship">
+            <span v-if="daysLeft <= 0" class="m-pill m-red">{{ t('account.expired') }}</span>
+            <span v-else-if="daysLeft <= 5" class="m-pill m-amber">{{ t('account.daysLeft', { n: daysLeft }) }}</span>
+            <span v-else class="m-until">{{ t('account.membership') }} {{ t('account.until', { date: dateOnly(auth.customer.membershipEnd) }) }}</span>
+          </div>
         </div>
       </div>
       <button class="logout-side" @click="logout" :aria-label="t('account.logout')">
@@ -112,6 +122,11 @@ function logout() {
 .avatar { flex-shrink: 0; width: 52px; height: 52px; border-radius: 999px; background: var(--orange); display: grid; place-items: center; font-size: 24px; font-weight: 700; text-transform: uppercase; }
 .p-name { font-family: var(--font-display); font-weight: 800; font-size: 20px; }
 .p-id { font-size: 13px; color: rgba(255,255,255,0.65); margin-top: 2px; }
+.p-mship { margin-top: 7px; }
+.m-until { font-size: 13px; color: rgba(255,255,255,0.65); }
+.m-pill { display: inline-block; font-size: 12px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.m-red { background: rgba(229, 72, 77, 0.22); color: #ff8b8e; }
+.m-amber { background: rgba(245, 166, 35, 0.2); color: #ffc466; }
 
 /* logout: 20% of the card, vertical icon + label, on the right */
 .logout-side {

@@ -2,6 +2,7 @@ import { Router } from "express";
 import { prisma } from "../db.js";
 import { requireAdmin } from "../auth.js";
 import { computeMemberFinance } from "../finance.js";
+import { addDays, daysLeft } from "../membership.js";
 
 export const reportsRouter = Router();
 
@@ -176,6 +177,19 @@ reportsRouter.get("/overview", requireAdmin, async (req, res) => {
     .slice(0, 8)
     .map((p) => ({ id: p.id, name: p.name, count: p.count }));
 
+  // Memberships ending within 5 days (or already ended) — soonest first.
+  const soon = addDays(now, 5);
+  const expiring = customers
+    .filter((c) => c.active && c.membershipEnd && c.membershipEnd <= soon)
+    .sort((a, b) => a.membershipEnd - b.membershipEnd);
+  const expiringMemberships = expiring.slice(0, 8).map((c) => ({
+    id: c.id,
+    loginId: c.loginId,
+    name: `${c.name} ${c.surname}`,
+    membershipEnd: c.membershipEnd,
+    daysLeft: daysLeft(c.membershipEnd, now)
+  }));
+
   const inventoryValue = Number(
     products.reduce((s, p) => s + (p.buyingPrice ?? 0) * p.count, 0).toFixed(2)
   );
@@ -192,6 +206,8 @@ reportsRouter.get("/overview", requireAdmin, async (req, res) => {
     thisWeek: agg(weekStart),
     thisMonth: agg(monthStart),
     topProducts,
-    lowStock
+    lowStock,
+    expiringMemberships,
+    expiringCount: expiring.length
   });
 });

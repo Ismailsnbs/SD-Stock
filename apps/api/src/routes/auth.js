@@ -74,7 +74,7 @@ authRouter.post("/customer/login", async (req, res) => {
 
   res.json({
     token: signCustomerToken(customer),
-    customer: { id: customer.id, loginId: customer.loginId, name: customer.name, surname: customer.surname }
+    customer: { id: customer.id, loginId: customer.loginId, name: customer.name, surname: customer.surname, membershipEnd: customer.membershipEnd }
   });
 });
 
@@ -89,7 +89,7 @@ authRouter.get("/customer/me", requireCustomer, async (req, res) => {
     getPublicSettings()
   ]);
   res.json({
-    customer: { id: customer.id, loginId: customer.loginId, name: customer.name, surname: customer.surname },
+    customer: { id: customer.id, loginId: customer.loginId, name: customer.name, surname: customer.surname, membershipEnd: customer.membershipEnd },
     finance: computeMemberFinance(sales, payments),
     settings
   });

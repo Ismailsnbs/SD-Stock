@@ -21,6 +21,7 @@ const pendingFile = ref(null);
 const replace = ref(false);
 const busy = ref(false);
 const result = ref(null);
+const conflict = ref(null); // loginIds that already exist — awaiting overwrite confirmation
 
 async function getTemplate() {
   try {
@@ -37,25 +38,39 @@ function choose() {
 function onFile(e) {
   pendingFile.value = e.target.files?.[0] || null;
   result.value = null;
+  conflict.value = null;
 }
 
-async function upload() {
+function cancelConflict() {
+  conflict.value = null;
+}
+
+async function upload(confirmed = false) {
   if (!pendingFile.value) return;
   busy.value = true;
   result.value = null;
   try {
     const form = new FormData();
     form.append("file", pendingFile.value);
-    const url = props.importUrl + (replace.value ? "?mode=replace" : "");
+    const params = [];
+    if (replace.value) params.push("mode=replace");
+    if (confirmed) params.push("confirm=1");
+    const url = props.importUrl + (params.length ? `?${params.join("&")}` : "");
     const { data } = await api.post(url, form, { headers: { "Content-Type": "multipart/form-data" } });
     result.value = data;
+    conflict.value = null;
     toast.ok(t("imp.importedToast", { created: data.created, updated: data.updated }));
     pendingFile.value = null;
     if (fileInput.value) fileInput.value.value = "";
     emit("imported");
   } catch (e) {
-    result.value = e?.response?.data || null;
-    toast.err(apiError(e, t("imp.importFailed")));
+    // The server found IDs that already exist — ask before overwriting them.
+    if (e?.response?.status === 409 && e.response.data?.requiresConfirmation) {
+      conflict.value = e.response.data.existing || [];
+    } else {
+      result.value = e?.response?.data || null;
+      toast.err(apiError(e, t("imp.importFailed")));
+    }
   } finally {
     busy.value = false;
   }
@@ -84,7 +99,7 @@ async function upload() {
         <button class="btn btn-ghost" @click="choose">
           {{ pendingFile ? pendingFile.name : t('imp.choose') }}
         </button>
-        <button class="btn btn-primary" :disabled="!pendingFile || busy" @click="upload">
+        <button class="btn btn-primary" :disabled="!pendingFile || busy" @click="upload(false)">
           {{ busy ? t('imp.importing') : t('imp.import') }}
         </button>
       </div>
@@ -93,6 +108,18 @@ async function upload() {
         <input type="checkbox" v-model="replace" class="cb" />
         <span>{{ t('imp.replace') }}</span>
       </label>
+
+      <div v-if="conflict" class="conflict">
+        <div class="conflict-title">⚠ {{ t('imp.conflictTitle', { n: conflict.length }) }}</div>
+        <p class="conflict-note">{{ t('imp.conflictNote') }}</p>
+        <div class="conflict-ids num">{{ conflict.join(", ") }}</div>
+        <div class="row">
+          <button class="btn btn-ghost" :disabled="busy" @click="cancelConflict">{{ t('imp.conflictCancel') }}</button>
+          <button class="btn btn-primary" :disabled="busy" @click="upload(true)">
+            {{ busy ? t('imp.importing') : t('imp.conflictConfirm') }}
+          </button>
+        </div>
+      </div>
 
       <div v-if="result" class="result">
         <div class="counts">
@@ -128,6 +155,10 @@ async function upload() {
 .row .btn:first-child { flex: 1; min-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .check { display: flex; align-items: flex-start; gap: 8px; margin: 14px 0 0; font-size: 12.5px; color: var(--txt-soft); font-weight: 500; }
 .cb { width: auto; margin-top: 1px; }
+.conflict { margin-top: 16px; padding: 14px 16px; border: 1px solid #e8c88a; background: #fdf8ee; border-radius: 12px; }
+.conflict-title { font-weight: 700; font-size: 13.5px; }
+.conflict-note { font-size: 12.5px; color: var(--txt-soft); margin: 6px 0 8px; line-height: 1.5; }
+.conflict-ids { font-size: 12.5px; margin-bottom: 12px; word-break: break-word; max-height: 72px; overflow: auto; }
 .result { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .counts { display: flex; gap: 8px; flex-wrap: wrap; }
 .errs { margin: 12px 0 0; padding-left: 18px; font-size: 12.5px; color: var(--red); }

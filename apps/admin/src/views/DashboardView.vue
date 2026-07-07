@@ -74,6 +74,19 @@ const o = computed(() => overview.value);
             </li>
           </ul>
         </section>
+
+        <section class="card block">
+          <h3 class="block-title">{{ t('dash.expiring') }}</h3>
+          <div v-if="!o.expiringMemberships?.length" class="empty">{{ t('dash.noneExpiring') }}</div>
+          <ul v-else class="low">
+            <li v-for="m in o.expiringMemberships" :key="m.id">
+              <span class="rank-name">{{ m.name }}</span>
+              <span class="pill" :class="m.daysLeft <= 0 ? 'pill-red' : 'pill-amber'">
+                {{ m.daysLeft <= 0 ? t('dash.expiredPill') : t('dash.daysLeftN', { n: m.daysLeft }) }}
+              </span>
+            </li>
+          </ul>
+        </section>
       </div>
 
       <section v-if="o.profitTracked" class="card inv">

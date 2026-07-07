@@ -70,7 +70,11 @@ const messages = {
       to: "Bitiş",
       loading: "Yükleniyor…",
       empty: "Bu aralıkta satın alma yok.",
-      loadFailed: "Geçmiş yüklenemedi."
+      loadFailed: "Geçmiş yüklenemedi.",
+      membership: "Üyelik",
+      until: "→ {date}",
+      daysLeft: "{n} gün kaldı",
+      expired: "Süresi doldu"
     },
     common: { back: "Geri", total: "Toplam" }
   },
@@ -141,7 +145,11 @@ const messages = {
       to: "To",
       loading: "Loading…",
       empty: "No purchases in this range.",
-      loadFailed: "Couldn't load history."
+      loadFailed: "Couldn't load history.",
+      membership: "Membership",
+      until: "→ {date}",
+      daysLeft: "{n} days left",
+      expired: "Expired"
     },
     common: { back: "Back", total: "Total" }
   }

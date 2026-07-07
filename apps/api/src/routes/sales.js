@@ -174,7 +174,7 @@ salesRouter.get("/feed", requireAdmin, async (req, res) => {
     const sales = await prisma.sale.findMany({ where, orderBy: { createdAt: "desc" }, include: { items: true } });
     for (const s of sales) {
       items.push({
-        kind: "sale", id: `s${s.id}`, createdAt: s.createdAt,
+        kind: "sale", id: `s${s.id}`, saleId: s.id, createdAt: s.createdAt,
         customerName: s.customerName, mode: s.mode, total: s.total, items: s.items
       });
     }
@@ -204,6 +204,25 @@ salesRouter.get("/", requireAdmin, async (req, res) => {
     take: Number(req.query.limit) || 500
   });
   res.json(sales);
+});
+
+// Admin: revert a mistaken order — puts the items back into stock and removes the
+// sale (SaleItem rows cascade). Member balance self-corrects since it is derived
+// from sales at read time.
+salesRouter.delete("/:id", requireAdmin, async (req, res) => {
+  const id = Number(req.params.id);
+  if (!Number.isInteger(id)) return res.status(400).json({ error: "Invalid sale id." });
+
+  const sale = await prisma.sale.findUnique({ where: { id }, include: { items: true } });
+  if (!sale) return res.status(404).json({ error: "Sale not found." });
+
+  await prisma.$transaction(async (tx) => {
+    for (const item of sale.items) {
+      await tx.product.update({ where: { id: item.productId }, data: { count: { increment: item.quantity } } });
+    }
+    await tx.sale.delete({ where: { id } });
+  });
+  res.json({ ok: true });
 });
 
 // Admin: export sales (respects the same filters) with overall + balance columns.

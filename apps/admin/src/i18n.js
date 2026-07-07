@@ -17,6 +17,7 @@ const messages = {
       salesN: "{n} satış", thisWeek: "{v} bu hafta", pcs: "adet", membersN: "{n} üye",
       topSellers: "En çok satanlar", noSales: "Henüz satış yok. Burada görünecekler.",
       lowStock: "Düşük stok", wellStocked: "Her şey yeterli stokta. 💪", leftN: "{n} kaldı",
+      expiring: "Üyeliği yaklaşanlar", noneExpiring: "Yaklaşan üyelik bitişi yok. 🎉", daysLeftN: "{n} gün", expiredPill: "Süresi doldu",
       inventoryValue: "Envanter değeri (maliyet)", viewReports: "Raporları gör →", loadFailed: "Panel yüklenemedi."
     },
     stock: {
@@ -48,6 +49,9 @@ const messages = {
       recordPayment: "Ödemeyi kaydet",
       added: "Üye eklendi.", saved: "Üye güncellendi.", delConfirm: "{name} silinsin mi? Ödemeleri de silinir.", deleted: "Üye silindi.",
       paid: "Ödeme kaydedildi — {v}.", payAmtErr: "0'dan büyük bir tutar gir.", delPayConfirm: "Bu ödeme silinsin mi?",
+      until: "→ {date}", expired: "Süresi doldu", daysLeft: "{n} gün kaldı",
+      renew: "{month} ödemesini al", renewConfirm: "{name} — {month} ödemesi alındı olarak işaretlensin mi? Üyelik 30 gün uzatılır.",
+      renewed: "Üyelik uzatıldı — yeni bitiş: {date}.", renewFailed: "Üyelik uzatılamadı.",
       loadFailed: "Üyeler yüklenemedi.", saveFailed: "Üye kaydedilemedi.", delFailed: "Üye silinemedi.",
       payFailed: "Ödeme kaydedilemedi.", delPayFailed: "Ödeme silinemedi.", exportFailed: "Dışa aktarma başarısız.", exported: "Üyeler dışa aktarıldı.", updateFailed: "Güncellenemedi."
     },
@@ -64,7 +68,9 @@ const messages = {
       amount: "Tutar (₺)", note: "Not — opsiyonel", notePh: "ör. Haziran yenileme", history: "Ödeme geçmişi", cancel: "İptal",
       paid: "Ödeme kaydedildi — {v}.", payAmtErr: "0'dan büyük bir tutar gir.", delPayConfirm: "Bu ödeme silinsin mi?",
       loadFailed: "Satışlar yüklenemedi.", exportFailed: "Dışa aktarma başarısız.", exported: "Satışlar dışa aktarıldı.",
-      payFailed: "Ödeme kaydedilemedi.", delPayFailed: "Ödeme silinemedi."
+      payFailed: "Ödeme kaydedilemedi.", delPayFailed: "Ödeme silinemedi.",
+      revert: "Geri al", revertConfirm: "{name} — {v} tutarındaki sipariş geri alınsın mı? Ürünler stoğa iade edilir ve satış silinir.",
+      reverted: "Sipariş geri alındı — ürünler stoğa iade edildi.", revertFailed: "Sipariş geri alınamadı."
     },
     reports: {
       eyebrow: "Performans", title: "Raporlar", weekly: "Haftalık", monthly: "Aylık",
@@ -88,7 +94,10 @@ const messages = {
       replace: "Tüm listeyi değiştir (yoksa mevcut satırlar güncellenir, yeniler eklenir)",
       added: "{n} eklendi", updated: "{n} güncellendi", skipped: "{n} atlandı", andMore: "…ve {n} tane daha",
       tplDownloaded: "Şablon indirildi.", tplFailed: "Şablon indirilemedi.",
-      importedToast: "İçe aktarıldı — {created} eklendi, {updated} güncellendi.", importFailed: "İçe aktarma başarısız."
+      importedToast: "İçe aktarıldı — {created} eklendi, {updated} güncellendi.", importFailed: "İçe aktarma başarısız.",
+      conflictTitle: "{n} ID zaten kayıtlı",
+      conflictNote: "Dosyadaki şu ID'ler mevcut üyelerle eşleşiyor. Devam edersen bu üyelerin bilgileri dosyadaki satırlarla güncellenir.",
+      conflictConfirm: "Güncelle ve devam et", conflictCancel: "Vazgeç"
     },
     settings: {
       eyebrow: "Hesap", title: "Ayarlar",
@@ -123,6 +132,7 @@ const messages = {
       salesN: "{n} sales", thisWeek: "{v} this week", pcs: "pcs", membersN: "{n} members",
       topSellers: "Top sellers", noSales: "No sales recorded yet. They'll show up here.",
       lowStock: "Low stock", wellStocked: "Everything's well stocked. 💪", leftN: "{n} left",
+      expiring: "Expiring memberships", noneExpiring: "No memberships ending soon. 🎉", daysLeftN: "{n} days", expiredPill: "Expired",
       inventoryValue: "Inventory value (at cost)", viewReports: "View reports →", loadFailed: "Could not load the dashboard."
     },
     stock: {
@@ -154,6 +164,9 @@ const messages = {
       recordPayment: "Record payment",
       added: "Member added.", saved: "Member updated.", delConfirm: "Delete {name}? This removes their payments too.", deleted: "Member deleted.",
       paid: "Payment recorded — {v}.", payAmtErr: "Enter an amount greater than 0.", delPayConfirm: "Delete this payment?",
+      until: "→ {date}", expired: "Expired", daysLeft: "{n} days left",
+      renew: "Collect {month} payment", renewConfirm: "{name} — mark the {month} payment as collected? The membership is extended by 30 days.",
+      renewed: "Membership extended — new end date: {date}.", renewFailed: "Could not extend the membership.",
       loadFailed: "Could not load members.", saveFailed: "Could not save the member.", delFailed: "Could not delete the member.",
       payFailed: "Could not record the payment.", delPayFailed: "Could not delete payment.", exportFailed: "Export failed.", exported: "Members exported.", updateFailed: "Could not update."
     },
@@ -170,7 +183,9 @@ const messages = {
       amount: "Amount (₺)", note: "Note — optional", notePh: "e.g. June renewal", history: "Payment history", cancel: "Cancel",
       paid: "Payment recorded — {v}.", payAmtErr: "Enter an amount greater than 0.", delPayConfirm: "Delete this payment?",
       loadFailed: "Could not load sales.", exportFailed: "Export failed.", exported: "Sales exported.",
-      payFailed: "Could not record the payment.", delPayFailed: "Could not delete payment."
+      payFailed: "Could not record the payment.", delPayFailed: "Could not delete payment.",
+      revert: "Revert", revertConfirm: "Revert this order — {name}, {v}? Items go back into stock and the sale is removed.",
+      reverted: "Order reverted — items returned to stock.", revertFailed: "Could not revert the order."
     },
     reports: {
       eyebrow: "Performance", title: "Reports", weekly: "Weekly", monthly: "Monthly",
@@ -194,7 +209,10 @@ const messages = {
       replace: "Replace the whole list (otherwise existing rows are updated, new ones added)",
       added: "{n} added", updated: "{n} updated", skipped: "{n} skipped", andMore: "…and {n} more",
       tplDownloaded: "Template downloaded.", tplFailed: "Could not download the template.",
-      importedToast: "Imported — {created} added, {updated} updated.", importFailed: "Import failed."
+      importedToast: "Imported — {created} added, {updated} updated.", importFailed: "Import failed.",
+      conflictTitle: "{n} IDs already exist",
+      conflictNote: "These IDs in the file match existing members. If you continue, those members will be updated with the rows from the file.",
+      conflictConfirm: "Update and continue", conflictCancel: "Cancel"
     },
     settings: {
       eyebrow: "Account", title: "Settings",
