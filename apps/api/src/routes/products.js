@@ -31,10 +31,10 @@ productsRouter.get("/template", requireAdmin, (req, res) => {
   res.send(stockTemplate());
 });
 
-// Admin full list.
+// Admin full list. Soft-deleted (inactive) products are hidden.
 productsRouter.get("/", requireAdmin, async (req, res) => {
   const q = String(req.query.q || "").trim();
-  const where = q ? { name: { contains: q } } : {};
+  const where = { active: true, ...(q ? { name: { contains: q } } : {}) };
   const products = await prisma.product.findMany({ where, orderBy: { name: "asc" } });
   res.json(products);
 });
@@ -72,17 +72,20 @@ productsRouter.post("/", requireAdmin, async (req, res) => {
   if (!name || count === undefined || sellingPrice === undefined) {
     return res.status(400).json({ error: "Product, count and selling price are required." });
   }
-  const exists = await prisma.product.findUnique({ where: { name: String(name).trim() } });
-  if (exists) return res.status(409).json({ error: "A product with this name already exists." });
+  const data = {
+    name: String(name).trim(),
+    count: Math.max(0, Math.trunc(Number(count))),
+    buyingPrice: buyingPrice === "" || buyingPrice === null || buyingPrice === undefined ? null : Number(buyingPrice),
+    sellingPrice: Number(sellingPrice)
+  };
 
-  const product = await prisma.product.create({
-    data: {
-      name: String(name).trim(),
-      count: Math.max(0, Math.trunc(Number(count))),
-      buyingPrice: buyingPrice === "" || buyingPrice === null || buyingPrice === undefined ? null : Number(buyingPrice),
-      sellingPrice: Number(sellingPrice)
-    }
-  });
+  const exists = await prisma.product.findUnique({ where: { name: data.name } });
+  if (exists && exists.active) return res.status(409).json({ error: "A product with this name already exists." });
+
+  // A soft-deleted product with the same name gets revived instead of blocking the create.
+  const product = exists
+    ? await prisma.product.update({ where: { id: exists.id }, data: { ...data, active: true } })
+    : await prisma.product.create({ data });
   res.status(201).json(product);
 });
 
@@ -102,7 +105,13 @@ productsRouter.put("/:id", requireAdmin, async (req, res) => {
 });
 
 productsRouter.delete("/:id", requireAdmin, async (req, res) => {
-  // Soft-delete so historical sales keep their product reference.
-  await prisma.product.update({ where: { id: Number(req.params.id) }, data: { active: false } });
+  const id = Number(req.params.id);
+  const soldCount = await prisma.saleItem.count({ where: { productId: id } });
+  if (soldCount > 0) {
+    // Soft-delete so historical sales keep their product reference.
+    await prisma.product.update({ where: { id }, data: { active: false } });
+  } else {
+    await prisma.product.delete({ where: { id } });
+  }
   res.json({ ok: true });
 });
