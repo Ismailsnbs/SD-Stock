@@ -84,6 +84,55 @@ reportsRouter.get("/timeseries", requireAdmin, async (req, res) => {
   res.json({ range, profitTracked: hasCost > 0, series });
 });
 
+// Membership money for the report page: fees collected in [from, to] plus the
+// all-time unpaid membership debt. Kept fully separate from sales revenue.
+reportsRouter.get("/membership", requireAdmin, async (req, res) => {
+  const now = new Date();
+  const from = req.query.from && !Number.isNaN(Date.parse(req.query.from))
+    ? startOfDay(req.query.from)
+    : new Date(now.getFullYear(), now.getMonth(), 1); // default: this month
+  const to = req.query.to && !Number.isNaN(Date.parse(req.query.to))
+    ? addDays(startOfDay(req.query.to), 1) // inclusive end date
+    : addDays(startOfDay(now), 1);
+
+  const [paid, unpaid] = await Promise.all([
+    prisma.membershipPayment.findMany({
+      where: { paidAt: { gte: from, lt: to } },
+      orderBy: { paidAt: "desc" },
+      include: { customer: { select: { id: true, loginId: true, name: true, surname: true } } }
+    }),
+    prisma.membershipPayment.findMany({
+      where: { paidAt: null },
+      include: { customer: { select: { id: true, loginId: true, name: true, surname: true } } }
+    })
+  ]);
+
+  const totalCollected = Math.round(paid.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+  const outstandingDebt = Math.round(unpaid.reduce((s, p) => s + p.amount, 0) * 100) / 100;
+
+  const row = (p) => ({
+    id: p.id,
+    customerId: p.customer.id,
+    loginId: p.customer.loginId,
+    name: `${p.customer.name} ${p.customer.surname}`,
+    amount: p.amount,
+    paidAt: p.paidAt,
+    periodStart: p.periodStart,
+    periodEnd: p.periodEnd
+  });
+
+  res.json({
+    from,
+    to: addDays(to, -1),
+    totalCollected,
+    paymentCount: paid.length,
+    outstandingDebt,
+    debtorCount: new Set(unpaid.map((p) => p.customerId)).size,
+    payments: paid.map(row),
+    unpaid: unpaid.sort((a, b) => a.periodEnd - b.periodEnd).map(row)
+  });
+});
+
 // Top-line overview cards + lists.
 reportsRouter.get("/overview", requireAdmin, async (req, res) => {
   const [productCount, customerCount, products, sales, customers, payments] = await Promise.all([

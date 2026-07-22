@@ -16,7 +16,7 @@ const loading = ref(true);
 
 const showForm = ref(false);
 const editing = ref(null);
-const form = ref({ loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "" });
+const form = ref({ loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "", membershipFee: "" });
 
 // Payment modal
 const showPay = ref(false);
@@ -24,6 +24,18 @@ const payTarget = ref(null);
 const payAmount = ref("");
 const payNote = ref("");
 const payDetail = ref(null);
+
+// Renew modal: charges the fee to the membership wallet, so the admin
+// confirms the amount and whether the money was collected on the spot.
+const showRenew = ref(false);
+const renewTarget = ref(null);
+const renewAmount = ref("");
+const renewPaidNow = ref(true);
+
+// Membership payment history modal
+const showHist = ref(false);
+const histTarget = ref(null);
+const histRows = ref(null);
 
 const money = (n) => `₺${Number(n || 0).toLocaleString("tr-TR", { maximumFractionDigits: 0 })}`;
 const dateOnly = (iso) => (iso ? new Date(iso).toLocaleDateString("tr-TR", { day: "2-digit", month: "short", year: "numeric" }) : "—");
@@ -40,7 +52,7 @@ const sortDir = ref("asc");
 const sortGetters = {
   loginId: (c) => (c.loginId || "").toLowerCase(),
   name: (c) => `${c.name} ${c.surname}`.toLowerCase(),
-  membershipStart: (c) => new Date(c.membershipStart).getTime() || 0,
+  membershipEnd: (c) => (c.membershipEnd ? new Date(c.membershipEnd).getTime() : 0),
   overall: (c) => c.finance?.overall ?? 0,
   balance: (c) => c.finance?.balance ?? 0,
   status: (c) => c.finance?.status || ""
@@ -75,7 +87,7 @@ onMounted(load);
 
 async function openAdd() {
   editing.value = null;
-  form.value = { loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "" };
+  form.value = { loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "", membershipFee: "" };
   showForm.value = true;
   // Suggest the next ID in the sequence (max existing number + 1); still editable.
   try {
@@ -87,7 +99,8 @@ function openEdit(c) {
   editing.value = c;
   form.value = {
     loginId: c.loginId, password: "", name: c.name, surname: c.surname,
-    telephone: c.telephone || "", membershipStart: c.membershipStart ? c.membershipStart.slice(0, 10) : ""
+    telephone: c.telephone || "", membershipStart: c.membershipStart ? c.membershipStart.slice(0, 10) : "",
+    membershipFee: c.membershipFee ?? ""
   };
   showForm.value = true;
 }
@@ -95,7 +108,10 @@ function openEdit(c) {
 async function save() {
   try {
     if (editing.value) {
-      const payload = { name: form.value.name, surname: form.value.surname, telephone: form.value.telephone };
+      const payload = {
+        name: form.value.name, surname: form.value.surname, telephone: form.value.telephone,
+        membershipFee: form.value.membershipFee === "" ? null : Number(form.value.membershipFee)
+      };
       if (form.value.password) payload.password = form.value.password;
       if (form.value.membershipStart) payload.membershipStart = form.value.membershipStart;
       await api.put(`/customers/${editing.value.id}`, payload);
@@ -123,15 +139,54 @@ async function approveConfirm() {
 }
 
 function renew(c) {
-  askConfirm(t("members.renewConfirm", { name: `${c.name} ${c.surname}`, month: endMonth(c) }), async () => {
-    try {
-      const { data } = await api.post(`/customers/${c.id}/renew`);
-      toast.ok(t("members.renewed", { date: dateOnly(data.membershipEnd) }));
-      load();
-    } catch (e) {
-      toast.err(apiError(e, t("members.renewFailed")));
-    }
-  });
+  renewTarget.value = c;
+  renewAmount.value = c.membership?.fee ?? "";
+  renewPaidNow.value = true;
+  showRenew.value = true;
+}
+// The renewed package: current paid-until date → +30 days.
+const renewFrom = computed(() => renewTarget.value?.membershipEnd || null);
+const renewTo = computed(() =>
+  renewFrom.value ? new Date(new Date(renewFrom.value).getTime() + 30 * 86400000) : null
+);
+async function submitRenew() {
+  const amount = Number(renewAmount.value);
+  if (!Number.isFinite(amount) || amount < 0) return toast.err(t("members.payAmtErr"));
+  try {
+    const { data } = await api.post(`/customers/${renewTarget.value.id}/renew`, {
+      amount, paid: renewPaidNow.value
+    });
+    toast.ok(t("members.renewed", { date: dateOnly(data.membershipEnd) }));
+    showRenew.value = false;
+    load();
+  } catch (e) {
+    toast.err(apiError(e, t("members.renewFailed")));
+  }
+}
+
+async function openHist(c) {
+  histTarget.value = c;
+  histRows.value = null;
+  showHist.value = true;
+  try {
+    const { data } = await api.get(`/customers/${c.id}`);
+    histRows.value = data.membershipPayments || [];
+  } catch (e) {
+    toast.err(apiError(e, t("members.histLoadFailed")));
+    showHist.value = false;
+  }
+}
+
+async function markPaid(mp) {
+  try {
+    await api.post(`/customers/${histTarget.value.id}/membership-payments/${mp.id}/pay`);
+    toast.ok(t("members.markPaidOk"));
+    const { data } = await api.get(`/customers/${histTarget.value.id}`);
+    histRows.value = data.membershipPayments || [];
+    load();
+  } catch (e) {
+    toast.err(apiError(e, t("members.markPaidFailed")));
+  }
 }
 
 function revertRenew(c) {
@@ -242,7 +297,7 @@ async function exportMembers() {
           <tr>
             <th class="sortable" @click="sortBy('loginId')">{{ t('members.colId') }}<span class="sort-ind">{{ sortIcon('loginId') }}</span></th>
             <th class="sortable" @click="sortBy('name')">{{ t('members.colName') }}<span class="sort-ind">{{ sortIcon('name') }}</span></th>
-            <th class="sortable" @click="sortBy('membershipStart')">{{ t('members.colSince') }}<span class="sort-ind">{{ sortIcon('membershipStart') }}</span></th>
+            <th class="sortable" @click="sortBy('membershipEnd')">{{ t('members.colMembership') }}<span class="sort-ind">{{ sortIcon('membershipEnd') }}</span></th>
             <th class="right sortable" @click="sortBy('overall')">{{ t('members.colOverall') }}<span class="sort-ind">{{ sortIcon('overall') }}</span></th>
             <th class="right sortable" @click="sortBy('balance')">{{ t('members.colBalance') }}<span class="sort-ind">{{ sortIcon('balance') }}</span></th>
             <th class="sortable" @click="sortBy('status')">{{ t('members.colStatus') }}<span class="sort-ind">{{ sortIcon('status') }}</span></th>
@@ -252,21 +307,28 @@ async function exportMembers() {
         <tbody>
           <tr v-if="loading"><td colspan="7" class="center muted">{{ t('members.loading') }}</td></tr>
           <tr v-else-if="!customers.length"><td colspan="7" class="center muted">{{ t('members.empty') }}</td></tr>
-          <tr v-for="c in sortedCustomers" :key="c.id" :class="{ rowdanger: c.finance?.status === 'overdue' }">
+          <tr v-for="c in sortedCustomers" :key="c.id" :class="{ rowdanger: c.finance?.status === 'overdue' || c.membership?.debt > 0 }">
             <td class="num strong">{{ c.loginId }}</td>
             <td>
               {{ c.name }} {{ c.surname }}
               <div class="sub num">{{ c.telephone || t('members.noPhone') }}</div>
+              <div class="sub num">{{ t('members.memberSince', { date: dateOnly(c.membershipStart) }) }}</div>
             </td>
             <td class="num">
-              {{ dateOnly(c.membershipStart) }}
+              <div class="lastpaid">
+                <span class="lp-lbl">{{ t('members.lastPaid') }}</span>
+                <span v-if="c.membership?.lastPaidAt" class="strong">{{ dateOnly(c.membership.lastPaidAt) }}</span>
+                <span v-else class="sub">{{ t('members.noPaymentYet') }}</span>
+              </div>
               <div v-if="c.membershipEnd" class="mship">
                 <span v-if="daysLeft(c) <= 0" class="pill pill-red">{{ t('members.expired') }}</span>
                 <span v-else-if="daysLeft(c) <= 5" class="pill pill-amber">{{ t('members.daysLeft', { n: daysLeft(c) }) }}</span>
                 <span v-else class="sub">{{ t('members.until', { date: dateOnly(c.membershipEnd) }) }}</span>
                 <button class="btn btn-success btn-sm renew-btn" @click="renew(c)">{{ t('members.renew', { month: endMonth(c) }) }}</button>
                 <button class="btn btn-danger btn-sm renew-btn" @click="revertRenew(c)">↩ {{ t('members.revertRenew') }}</button>
+                <button class="btn btn-ghost btn-sm renew-btn" @click="openHist(c)">{{ t('members.histBtn') }}</button>
               </div>
+              <div v-if="c.membership?.debt > 0" class="mdebt num">{{ t('members.mDebt', { v: money(c.membership.debt) }) }}</div>
             </td>
             <td class="right num">{{ money(c.finance?.overall) }}</td>
             <td class="right num" :class="c.finance?.balance > 0 ? 'owe' : 'ok'">{{ money(c.finance?.balance) }}</td>
@@ -314,6 +376,10 @@ async function exportMembers() {
           <label>{{ t('members.fStart') }}</label>
           <input v-model="form.membershipStart" type="date" />
         </div>
+        <div>
+          <label>{{ t('members.fFee') }}</label>
+          <input v-model="form.membershipFee" type="number" min="0" step="0.01" :placeholder="t('members.fFeePh')" />
+        </div>
       </div>
       <template #footer>
         <button class="btn btn-ghost" @click="showForm = false">{{ t('members.cancel') }}</button>
@@ -355,6 +421,48 @@ async function exportMembers() {
       </template>
     </Modal>
 
+    <!-- Renew membership: extend 30 days + charge the fee to the membership wallet -->
+    <Modal :open="showRenew" :title="t('members.renewTitle', { name: `${renewTarget?.name} ${renewTarget?.surname}` })" @close="showRenew = false">
+      <p class="confirm-msg">{{ t('members.renewInfo', { from: dateOnly(renewFrom), to: dateOnly(renewTo) }) }}</p>
+      <div class="form-grid">
+        <div>
+          <label>{{ t('members.renewAmount') }}</label>
+          <input v-model="renewAmount" type="number" min="0" step="0.01" />
+        </div>
+        <div class="paidnow">
+          <label class="check">
+            <input v-model="renewPaidNow" type="checkbox" />
+            {{ t('members.renewPaidNow') }}
+          </label>
+          <p class="sub">{{ t('members.renewPaidNowHint') }}</p>
+        </div>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="showRenew = false">{{ t('members.cancel') }}</button>
+        <button class="btn btn-primary" @click="submitRenew">{{ t('members.renewSubmit') }}</button>
+      </template>
+    </Modal>
+
+    <!-- Membership payment history -->
+    <Modal :open="showHist" :title="t('members.histTitle', { name: `${histTarget?.name} ${histTarget?.surname}` })" @close="showHist = false">
+      <div v-if="histRows === null" class="muted">{{ t('members.loading') }}</div>
+      <div v-else-if="!histRows.length" class="muted">{{ t('members.histEmpty') }}</div>
+      <div v-else class="history">
+        <div v-for="mp in histRows" :key="mp.id" class="hist-row mhist-row">
+          <span class="num">{{ dateOnly(mp.periodStart) }} → {{ dateOnly(mp.periodEnd) }}</span>
+          <span class="num strong">{{ money(mp.amount) }}</span>
+          <span v-if="mp.paidAt" class="pill pill-green">{{ t('members.histPaidOn', { date: dateOnly(mp.paidAt) }) }}</span>
+          <span v-else class="unpaid-cell">
+            <span class="pill pill-red">{{ t('members.histUnpaid') }}</span>
+            <button class="btn btn-primary btn-sm" @click="markPaid(mp)">{{ t('members.markPaid') }}</button>
+          </span>
+        </div>
+      </div>
+      <template #footer>
+        <button class="btn btn-ghost" @click="showHist = false">{{ t('members.cancel') }}</button>
+      </template>
+    </Modal>
+
     <!-- Approval modal (renew / undo renewal) -->
     <Modal :open="!!confirmBox" :title="t('members.confirmTitle')" @close="confirmBox = null">
       <p class="confirm-msg">{{ confirmBox?.message }}</p>
@@ -381,7 +489,14 @@ async function exportMembers() {
 .muted { color: var(--txt-faint); }
 .strong { font-weight: 700; }
 .sub { font-size: 12px; color: var(--txt-faint); margin-top: 2px; }
+.lastpaid { white-space: nowrap; }
+.lp-lbl { font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--txt-faint); margin-right: 6px; }
+.mdebt { font-size: 11.5px; color: var(--red); font-weight: 700; margin-top: 4px; }
 .mship { display: flex; align-items: center; gap: 8px; margin-top: 6px; white-space: nowrap; }
+.paidnow .check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; margin-top: 26px; }
+.paidnow .check input { width: auto; }
+.mhist-row { grid-template-columns: 1fr auto auto; }
+.unpaid-cell { display: flex; align-items: center; gap: 8px; }
 .confirm-msg { font-size: 15px; line-height: 1.55; }
 .renew-btn { font-size: 11.5px; padding: 4px 10px; }
 .owe { color: var(--red); font-weight: 700; }

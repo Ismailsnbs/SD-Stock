@@ -167,8 +167,9 @@ async function placeOrder() {
     <div v-else-if="!filtered.length" class="state">{{ t('shop.empty') }}</div>
 
     <div class="grid" :class="{ 'has-cart': !cart.isEmpty }">
-      <article v-for="p in filtered" :key="p.id" class="tile" :class="{ out: !p.inStock }">
+      <article v-for="p in filtered" :key="p.id" class="tile" :class="{ out: !p.inStock, featured: p.featured }">
         <div class="tile-top">
+          <span v-if="p.featured" class="star" :title="t('shop.featured')" aria-hidden="true">★</span>
           <span class="pill" :class="p.inStock ? (p.count <= 5 ? 'pill-amber' : 'pill-green') : 'pill-red'">
             {{ p.inStock ? (p.count <= 5 ? t('shop.left', { n: p.count }) : t('shop.inStock')) : t('shop.soldOut') }}
           </span>
@@ -305,7 +306,9 @@ async function placeOrder() {
 .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; padding: 4px 18px; }
 .tile { background: var(--paper); border: 1.5px solid var(--line); border-radius: var(--r-lg); padding: 16px; display: flex; flex-direction: column; min-height: 150px; box-shadow: var(--shadow); }
 .tile.out { opacity: 0.6; }
-.tile-top { margin-bottom: 10px; }
+.tile.featured { border-color: var(--orange); }
+.tile-top { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; }
+.tile-top .star { color: var(--orange); font-size: 16px; line-height: 1; }
 .tile-name { font-size: 16px; font-weight: 800; line-height: 1.2; flex: 1; }
 .tile-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 14px; }
 .price { font-size: 18px; font-weight: 700; }

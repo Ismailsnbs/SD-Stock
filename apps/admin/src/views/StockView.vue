@@ -65,6 +65,20 @@ async function save() {
   }
 }
 
+// Star pins a product to the top of the storefront. Optimistic — reload re-sorts the list.
+async function toggleFeatured(p) {
+  const next = !p.featured;
+  p.featured = next;
+  try {
+    await api.put(`/products/${p.id}`, { featured: next });
+    toast.ok(t(next ? "stock.starred" : "stock.unstarred", { name: p.name }));
+    load();
+  } catch (e) {
+    p.featured = !next;
+    toast.err(apiError(e, t("stock.saveFailed")));
+  }
+}
+
 async function remove(p) {
   if (!confirm(t("stock.removeConfirm", { name: p.name }))) return;
   try {
@@ -112,6 +126,7 @@ function stockClass(n) {
       <table class="data">
         <thead>
           <tr>
+            <th class="star-col"><span class="sr-only">{{ t('stock.colFeatured') }}</span></th>
             <th>{{ t('stock.colProduct') }}</th>
             <th class="right">{{ t('stock.colCount') }}</th>
             <th class="right">{{ t('stock.colBuying') }}</th>
@@ -121,9 +136,18 @@ function stockClass(n) {
           </tr>
         </thead>
         <tbody>
-          <tr v-if="loading"><td colspan="6" class="center muted">{{ t('stock.loading') }}</td></tr>
-          <tr v-else-if="!products.length"><td colspan="6" class="center muted">{{ t('stock.empty') }}</td></tr>
+          <tr v-if="loading"><td colspan="7" class="center muted">{{ t('stock.loading') }}</td></tr>
+          <tr v-else-if="!products.length"><td colspan="7" class="center muted">{{ t('stock.empty') }}</td></tr>
           <tr v-for="p in products" :key="p.id">
+            <td class="star-col">
+              <button
+                class="star"
+                :class="{ on: p.featured }"
+                :aria-pressed="!!p.featured"
+                :title="t(p.featured ? 'stock.unstar' : 'stock.star')"
+                @click="toggleFeatured(p)"
+              >{{ p.featured ? '★' : '☆' }}</button>
+            </td>
             <td class="strong">{{ p.name }}</td>
             <td class="right"><span class="pill" :class="stockClass(p.count)"><span class="num">{{ p.count }}</span></span></td>
             <td class="right num">{{ money(p.buyingPrice) }}</td>
@@ -179,6 +203,11 @@ function stockClass(n) {
 .muted { color: var(--txt-faint); }
 .strong { font-weight: 600; }
 .pos { color: var(--green); font-weight: 700; }
+.star-col { width: 44px; text-align: center; }
+.star { font-size: 19px; line-height: 1; color: var(--txt-faint); padding: 4px; border-radius: 8px; }
+.star.on { color: var(--orange); }
+.star:hover { background: var(--chalk); }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .actions { white-space: nowrap; display: flex; gap: 6px; justify-content: flex-end; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .form-grid .full { grid-column: 1 / -1; }

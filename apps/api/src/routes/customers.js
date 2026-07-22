@@ -6,6 +6,7 @@ import { requireAdmin } from "../auth.js";
 import { customerTemplate, parseCustomers, exportCustomersWorkbook } from "../excel.js";
 import { computeMemberFinance } from "../finance.js";
 import { addDays, nextBoundary, PERIOD_DAYS } from "../membership.js";
+import { getAllSettings } from "../settings.js";
 
 export const customersRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 * 1024 * 1024 } });
@@ -26,6 +27,41 @@ async function financeMap() {
     (payBy.get(p.customerId) || payBy.set(p.customerId, []).get(p.customerId)).push(p);
   }
   return (id) => computeMemberFinance(salesBy.get(id) || [], payBy.get(id) || []);
+}
+
+// The membership wallet, summarized per member: debt = unpaid packages,
+// lastPaidAt = most recent collected fee (what the members table shows on top).
+function summarizeMembership(rows) {
+  let debt = 0;
+  let unpaidCount = 0;
+  let lastPaidAt = null;
+  for (const r of rows) {
+    if (r.paidAt) {
+      if (!lastPaidAt || r.paidAt > lastPaidAt) lastPaidAt = r.paidAt;
+    } else {
+      debt += r.amount;
+      unpaidCount++;
+    }
+  }
+  return { debt: Math.round(debt * 100) / 100, unpaidCount, lastPaidAt };
+}
+
+async function membershipMap() {
+  const rows = await prisma.membershipPayment.findMany({
+    select: { customerId: true, amount: true, paidAt: true }
+  });
+  const by = new Map();
+  for (const r of rows) {
+    (by.get(r.customerId) || by.set(r.customerId, []).get(r.customerId)).push(r);
+  }
+  return (id) => summarizeMembership(by.get(id) || []);
+}
+
+// The fee to charge on Renew: per-member override, else the global setting.
+async function effectiveFee(customer) {
+  if (customer.membershipFee != null) return customer.membershipFee;
+  const settings = await getAllSettings();
+  return settings.membershipFee;
 }
 
 // Public: minimal member list for the storefront combobox (guest checkout).
@@ -59,12 +95,18 @@ customersRouter.get("/", requireAdmin, async (req, res) => {
         ]
       }
     : {};
-  const [customers, finOf] = await Promise.all([
+  const [customers, finOf, mshipOf, settings] = await Promise.all([
     prisma.customer.findMany({ where, orderBy: { createdAt: "desc" } }),
-    financeMap()
+    financeMap(),
+    membershipMap(),
+    getAllSettings()
   ]);
   res.json(
-    customers.map(({ password, ...c }) => ({ ...c, finance: finOf(c.id) }))
+    customers.map(({ password, ...c }) => ({
+      ...c,
+      finance: finOf(c.id),
+      membership: { ...mshipOf(c.id), fee: c.membershipFee ?? settings.membershipFee }
+    }))
   );
 });
 
@@ -109,12 +151,21 @@ customersRouter.get("/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const customer = await prisma.customer.findUnique({ where: { id } });
   if (!customer) return res.status(404).json({ error: "Member not found." });
-  const [sales, payments] = await Promise.all([
+  const [sales, payments, membershipPayments, settings] = await Promise.all([
     prisma.sale.findMany({ where: { customerId: id }, orderBy: { createdAt: "desc" }, include: { items: true } }),
-    prisma.payment.findMany({ where: { customerId: id }, orderBy: { createdAt: "desc" } })
+    prisma.payment.findMany({ where: { customerId: id }, orderBy: { createdAt: "desc" } }),
+    prisma.membershipPayment.findMany({ where: { customerId: id }, orderBy: { periodStart: "desc" } }),
+    getAllSettings()
   ]);
   const { password, ...safe } = customer;
-  res.json({ ...safe, finance: computeMemberFinance(sales, payments), sales, payments });
+  res.json({
+    ...safe,
+    finance: computeMemberFinance(sales, payments),
+    membership: { ...summarizeMembership(membershipPayments), fee: customer.membershipFee ?? settings.membershipFee },
+    sales,
+    payments,
+    membershipPayments
+  });
 });
 
 // Record a payment (partial allowed). Default amount is the current balance.
@@ -137,35 +188,66 @@ customersRouter.delete("/:id/payments/:paymentId", requireAdmin, async (req, res
 });
 
 // Renew the membership: one more 30-day package on top of the current period
-// end (not "today", so the member's cycle never shifts). Intentionally NOT
-// recorded as a Payment — renewals are collected outside the finance ledger.
+// end (not "today", so the member's cycle never shifts). The fee is charged to
+// the membership wallet as a MembershipPayment row — paid immediately when the
+// admin collected the money, or left unpaid (debt) otherwise. Never charged
+// automatically on expiry; only this explicit admin action creates debt.
 customersRouter.post("/:id/renew", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const customer = await prisma.customer.findUnique({ where: { id } });
   if (!customer) return res.status(404).json({ error: "Member not found." });
 
+  const bodyAmount = req.body?.amount;
+  const amount = bodyAmount != null ? Number(bodyAmount) : await effectiveFee(customer);
+  if (!Number.isFinite(amount) || amount < 0) return res.status(400).json({ error: "Enter a valid membership fee." });
+  const paid = req.body?.paid !== false; // default: money collected at the desk
+
   const base = customer.membershipEnd ?? nextBoundary(customer.membershipStart);
-  const updated = await prisma.customer.update({
-    where: { id },
-    data: { membershipEnd: addDays(base, PERIOD_DAYS) }
-  });
+  const periodEnd = addDays(base, PERIOD_DAYS);
+  const [updated, charge] = await prisma.$transaction([
+    prisma.customer.update({ where: { id }, data: { membershipEnd: periodEnd } }),
+    prisma.membershipPayment.create({
+      data: { customerId: id, amount, periodStart: base, periodEnd, paidAt: paid ? new Date() : null }
+    })
+  ]);
   const { password: _pw, ...safe } = updated;
-  res.json(safe);
+  res.json({ ...safe, charge });
 });
 
-// Undo a renewal: take one 30-day package back off the period end.
+// Undo a renewal: take one 30-day package back off the period end and delete
+// its wallet charge (latest package first) so no phantom debt is left behind.
 customersRouter.post("/:id/renew-revert", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
   const customer = await prisma.customer.findUnique({ where: { id } });
   if (!customer) return res.status(404).json({ error: "Member not found." });
   if (!customer.membershipEnd) return res.status(400).json({ error: "Member has no membership end date." });
 
-  const updated = await prisma.customer.update({
-    where: { id },
-    data: { membershipEnd: addDays(customer.membershipEnd, -PERIOD_DAYS) }
+  const latest = await prisma.membershipPayment.findFirst({
+    where: { customerId: id },
+    orderBy: { periodEnd: "desc" }
   });
+  const ops = [
+    prisma.customer.update({
+      where: { id },
+      data: { membershipEnd: addDays(customer.membershipEnd, -PERIOD_DAYS) }
+    })
+  ];
+  // Rows only exist for renewals made after the wallet feature; older
+  // extensions have nothing to delete and just get the date pulled back.
+  if (latest) ops.push(prisma.membershipPayment.delete({ where: { id: latest.id } }));
+  const [updated] = await prisma.$transaction(ops);
   const { password: _pw, ...safe } = updated;
   res.json(safe);
+});
+
+// Settle an unpaid membership charge (member paid their fee later).
+customersRouter.post("/:id/membership-payments/:mpId/pay", requireAdmin, async (req, res) => {
+  const mpId = Number(req.params.mpId);
+  const row = await prisma.membershipPayment.findUnique({ where: { id: mpId } });
+  if (!row || row.customerId !== Number(req.params.id)) return res.status(404).json({ error: "Charge not found." });
+  if (row.paidAt) return res.status(400).json({ error: "Already paid." });
+  const updated = await prisma.membershipPayment.update({ where: { id: mpId }, data: { paidAt: new Date() } });
+  res.json(updated);
 });
 
 // Import an uploaded Excel. `mode=replace` clears the list first; default upserts.
@@ -225,10 +307,12 @@ customersRouter.post("/import", requireAdmin, upload.single("file"), async (req,
 
 // Manual add / edit / remove.
 customersRouter.post("/", requireAdmin, async (req, res) => {
-  const { loginId, password, name, surname, telephone, membershipStart } = req.body || {};
+  const { loginId, password, name, surname, telephone, membershipStart, membershipFee } = req.body || {};
   if (!loginId || !password || !name || !surname) {
     return res.status(400).json({ error: "ID, password, name and surname are required." });
   }
+  const fee = membershipFee === undefined || membershipFee === null || membershipFee === "" ? null : Number(membershipFee);
+  if (fee !== null && (!Number.isFinite(fee) || fee < 0)) return res.status(400).json({ error: "Enter a valid membership fee." });
   const exists = await prisma.customer.findUnique({ where: { loginId: String(loginId).trim() } });
   if (exists) return res.status(409).json({ error: "A member with this ID already exists." });
 
@@ -240,6 +324,7 @@ customersRouter.post("/", requireAdmin, async (req, res) => {
       name: name.trim(),
       surname: surname.trim(),
       telephone: telephone ? String(telephone).trim() : null,
+      membershipFee: fee,
       membershipStart: start,
       membershipEnd: nextBoundary(start)
     }
@@ -250,12 +335,18 @@ customersRouter.post("/", requireAdmin, async (req, res) => {
 
 customersRouter.put("/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const { name, surname, telephone, password, active, membershipStart } = req.body || {};
+  const { name, surname, telephone, password, active, membershipStart, membershipFee } = req.body || {};
   const data = {};
   if (name !== undefined) data.name = String(name).trim();
   if (surname !== undefined) data.surname = String(surname).trim();
   if (telephone !== undefined) data.telephone = telephone ? String(telephone).trim() : null;
   if (active !== undefined) data.active = Boolean(active);
+  if (membershipFee !== undefined) {
+    // Empty/null clears the override (falls back to the global fee).
+    const fee = membershipFee === null || membershipFee === "" ? null : Number(membershipFee);
+    if (fee !== null && (!Number.isFinite(fee) || fee < 0)) return res.status(400).json({ error: "Enter a valid membership fee." });
+    data.membershipFee = fee;
+  }
   if (password) data.password = await bcrypt.hash(String(password), 10);
   if (membershipStart && !Number.isNaN(Date.parse(membershipStart))) {
     data.membershipStart = new Date(membershipStart);

@@ -3,11 +3,13 @@
 // subset the customer storefront is allowed to read.
 import { prisma } from "./db.js";
 
-const DEFAULTS = { showCustomerBalance: true };
+const DEFAULTS = { showCustomerBalance: true, membershipFee: 3500 };
 const PUBLIC_KEYS = ["showCustomerBalance"];
 const BOOL_KEYS = new Set(["showCustomerBalance"]);
+const NUM_KEYS = new Set(["membershipFee"]);
 
-const fromStored = (key, raw) => (BOOL_KEYS.has(key) ? raw === "true" : raw);
+const fromStored = (key, raw) =>
+  BOOL_KEYS.has(key) ? raw === "true" : NUM_KEYS.has(key) ? Number(raw) : raw;
 const toStored = (key, val) => (BOOL_KEYS.has(key) ? (val ? "true" : "false") : String(val));
 
 // Every known setting, falling back to its default when no row exists yet.
@@ -31,6 +33,7 @@ export async function getPublicSettings() {
 export async function setSettings(patch = {}) {
   for (const [key, val] of Object.entries(patch)) {
     if (!(key in DEFAULTS)) continue;
+    if (NUM_KEYS.has(key) && (!Number.isFinite(Number(val)) || Number(val) < 0)) continue;
     const value = toStored(key, val);
     await prisma.setting.upsert({ where: { key }, create: { key, value }, update: { value } });
   }

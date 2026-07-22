@@ -11,7 +11,7 @@ const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 5 *
 productsRouter.get("/storefront", async (req, res) => {
   const products = await prisma.product.findMany({
     where: { active: true },
-    orderBy: { name: "asc" }
+    orderBy: [{ featured: "desc" }, { name: "asc" }]
   });
   res.json(
     products.map((p) => ({
@@ -19,6 +19,7 @@ productsRouter.get("/storefront", async (req, res) => {
       name: p.name,
       count: p.count,
       sellingPrice: p.sellingPrice,
+      featured: p.featured,
       inStock: p.count > 0
     }))
   );
@@ -35,7 +36,7 @@ productsRouter.get("/template", requireAdmin, (req, res) => {
 productsRouter.get("/", requireAdmin, async (req, res) => {
   const q = String(req.query.q || "").trim();
   const where = { active: true, ...(q ? { name: { contains: q } } : {}) };
-  const products = await prisma.product.findMany({ where, orderBy: { name: "asc" } });
+  const products = await prisma.product.findMany({ where, orderBy: [{ featured: "desc" }, { name: "asc" }] });
   res.json(products);
 });
 
@@ -91,7 +92,7 @@ productsRouter.post("/", requireAdmin, async (req, res) => {
 
 productsRouter.put("/:id", requireAdmin, async (req, res) => {
   const id = Number(req.params.id);
-  const { name, count, buyingPrice, sellingPrice, active } = req.body || {};
+  const { name, count, buyingPrice, sellingPrice, active, featured } = req.body || {};
   const data = {};
   if (name !== undefined) data.name = String(name).trim();
   if (count !== undefined) data.count = Math.max(0, Math.trunc(Number(count)));
@@ -99,6 +100,7 @@ productsRouter.put("/:id", requireAdmin, async (req, res) => {
     data.buyingPrice = buyingPrice === "" || buyingPrice === null ? null : Number(buyingPrice);
   if (sellingPrice !== undefined) data.sellingPrice = Number(sellingPrice);
   if (active !== undefined) data.active = Boolean(active);
+  if (featured !== undefined) data.featured = Boolean(featured);
 
   const product = await prisma.product.update({ where: { id }, data });
   res.json(product);

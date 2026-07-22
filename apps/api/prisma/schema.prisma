@@ -33,14 +33,16 @@ model Customer {
   telephone       String?
   membershipStart DateTime  @default(now()) // join date — anchors the 30-day package cycle
   membershipEnd   DateTime? // paid-until date of the current 30-day package; null until backfilled
+  membershipFee   Float? // per-member fee override; null = use the global setting
   active          Boolean   @default(true)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
   sales           Sale[]
   payments        Payment[]
+  membershipPayments MembershipPayment[]
 }
 
-// Money a member hands over — usually at their membership renewal.
+// Money a member hands over for shop purchases — the "market wallet".
 // Balance = sum(sales.total) − sum(payments.amount). Partial payments allowed.
 model Payment {
   id         Int      @id @default(autoincrement())
@@ -51,6 +53,20 @@ model Payment {
   createdAt  DateTime @default(now())
 }
 
+// The "membership wallet": one row per 30-day package, created only when an
+// admin clicks Renew. paidAt null = still owed; set = collected on that date.
+// Membership money never mixes with the market ledger above.
+model MembershipPayment {
+  id          Int       @id @default(autoincrement())
+  customer    Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerId  Int
+  amount      Float
+  periodStart DateTime // package covered: [periodStart, periodEnd)
+  periodEnd   DateTime
+  paidAt      DateTime?
+  createdAt   DateTime  @default(now())
+}
+
 // Products from the admin's stock Excel list.
 model Product {
   id           Int      @id @default(autoincrement())
@@ -59,6 +75,7 @@ model Product {
   buyingPrice  Float? // optional — unlocks profit in reports
   sellingPrice Float
   active       Boolean  @default(true)
+  featured     Boolean  @default(false) // starred by an admin — pinned to the top of the storefront
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   saleItems    SaleItem[]

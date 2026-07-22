@@ -54,7 +54,43 @@ async function loadOverview() {
     toast.err(apiError(e, t("reports.recLoadFailed")));
   }
 }
-onMounted(() => { load(); loadOverview(); });
+
+// Membership money — separate from sales revenue. Preset ranges or custom dates.
+const mship = ref(null);
+const mshipPreset = ref("thisMonth");
+const mshipFrom = ref("");
+const mshipTo = ref("");
+const isoDate = (d) => d.toISOString().slice(0, 10);
+
+function setMshipPreset(p) {
+  mshipPreset.value = p;
+  const now = new Date();
+  if (p === "thisMonth") {
+    mshipFrom.value = isoDate(new Date(now.getFullYear(), now.getMonth(), 1));
+    mshipTo.value = isoDate(now);
+  } else if (p === "lastMonth") {
+    mshipFrom.value = isoDate(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+    mshipTo.value = isoDate(new Date(now.getFullYear(), now.getMonth(), 0));
+  }
+  loadMship();
+}
+
+async function loadMship() {
+  try {
+    const { data: d } = await api.get("/reports/membership", {
+      params: { from: mshipFrom.value || undefined, to: mshipTo.value || undefined }
+    });
+    mship.value = d;
+  } catch (e) {
+    toast.err(apiError(e, t("reports.mshipLoadFailed")));
+  }
+}
+function customMship() {
+  mshipPreset.value = "custom";
+  loadMship();
+}
+
+onMounted(() => { load(); loadOverview(); setMshipPreset("thisMonth"); });
 
 function setRange(r) {
   range.value = r;
@@ -155,6 +191,74 @@ function setRange(r) {
         </table>
       </div>
     </section>
+
+    <!-- Membership payments: fees collected on renewals, separate from sales -->
+    <section v-if="mship" class="mship-report">
+      <div class="chart-head mship-head">
+        <h3>{{ t('reports.mshipTitle') }}</h3>
+        <div class="mship-filters">
+          <div class="seg">
+            <button :class="{ on: mshipPreset === 'thisMonth' }" @click="setMshipPreset('thisMonth')">{{ t('reports.thisMonth') }}</button>
+            <button :class="{ on: mshipPreset === 'lastMonth' }" @click="setMshipPreset('lastMonth')">{{ t('reports.lastMonth') }}</button>
+          </div>
+          <input v-model="mshipFrom" type="date" @change="customMship" />
+          <span class="muted">→</span>
+          <input v-model="mshipTo" type="date" @change="customMship" />
+        </div>
+      </div>
+
+      <div class="mship-totals">
+        <div class="tot card mship-card">
+          <div class="eyebrow">{{ t('reports.mshipCollected') }}</div>
+          <div class="tot-val num pos">{{ money(mship.totalCollected) }}</div>
+          <div class="tot-sub">{{ t('reports.mshipPaymentsN', { n: mship.paymentCount }) }}</div>
+        </div>
+        <div class="tot card mship-card debt">
+          <div class="eyebrow">{{ t('reports.mshipOutstanding') }}</div>
+          <div class="tot-val num danger">{{ money(mship.outstandingDebt) }}</div>
+          <div class="tot-sub">{{ t('reports.mshipDebtorsN', { n: mship.debtorCount }) }}</div>
+        </div>
+      </div>
+
+      <div class="card debtors">
+        <div class="chart-head">
+          <h3>{{ t('reports.mshipPayments') }}</h3>
+        </div>
+        <div v-if="!mship.payments.length" class="pad muted">{{ t('reports.mshipEmpty') }}</div>
+        <table v-else class="data">
+          <thead>
+            <tr><th>{{ t('reports.colDate') }}</th><th>{{ t('reports.colMember') }}</th><th>{{ t('reports.colPeriod') }}</th><th class="right">{{ t('reports.colAmount') }}</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in mship.payments" :key="p.id">
+              <td class="num">{{ dateOnly(p.paidAt) }}</td>
+              <td class="strong">{{ p.name }}<div class="sub num">{{ p.loginId }}</div></td>
+              <td class="num">{{ dateOnly(p.periodStart) }} → {{ dateOnly(p.periodEnd) }}</td>
+              <td class="right num">{{ money(p.amount) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div v-if="mship.unpaid.length" class="card debtors mt">
+        <div class="chart-head">
+          <h3>{{ t('reports.mshipUnpaidTitle') }}</h3>
+          <span class="muted small">{{ t('reports.mshipUnpaidHint') }}</span>
+        </div>
+        <table class="data">
+          <thead>
+            <tr><th>{{ t('reports.colMember') }}</th><th>{{ t('reports.colPeriod') }}</th><th class="right">{{ t('reports.colAmount') }}</th></tr>
+          </thead>
+          <tbody>
+            <tr v-for="p in mship.unpaid" :key="p.id" class="rowdanger">
+              <td class="strong">{{ p.name }}<div class="sub num">{{ p.loginId }}</div></td>
+              <td class="num">{{ dateOnly(p.periodStart) }} → {{ dateOnly(p.periodEnd) }}</td>
+              <td class="right num danger">{{ money(p.amount) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
   </div>
 </template>
 
@@ -200,5 +304,15 @@ function setRange(r) {
 .danger { color: var(--red); font-weight: 700; }
 .rowdanger td { background: #fdf6f6; }
 
-@media (max-width: 720px) { .totals { grid-template-columns: 1fr; } .rec-totals { grid-template-columns: 1fr; } }
+.mship-report { margin-top: 24px; }
+.mship-head { margin-bottom: 14px; }
+.mship-head h3 { font-size: 18px; font-weight: 800; }
+.mship-filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mship-filters input[type="date"] { padding: 6px 10px; font-size: 13px; }
+.mship-totals { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+.mship-card { border-left: 4px solid var(--green); }
+.mship-card.debt { border-left-color: var(--red); }
+.mt { margin-top: 16px; }
+
+@media (max-width: 720px) { .totals { grid-template-columns: 1fr; } .rec-totals { grid-template-columns: 1fr; } .mship-totals { grid-template-columns: 1fr; } }
 </style>

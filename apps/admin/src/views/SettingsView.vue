@@ -19,12 +19,32 @@ const saving = ref(false);
 const showBalance = ref(false);
 const settingBusy = ref(false);
 
+// Membership fee charged on each Renew (per-member overrides live on the member).
+const membershipFee = ref("");
+const feeSaving = ref(false);
+
 onMounted(async () => {
   try {
     const { data } = await api.get("/settings");
     showBalance.value = !!data.showCustomerBalance;
+    membershipFee.value = data.membershipFee ?? "";
   } catch { /* leave defaults; toggling will still try to save */ }
 });
+
+async function saveMembershipFee() {
+  const fee = Number(membershipFee.value);
+  if (!Number.isFinite(fee) || fee < 0) return toast.err(t("settings.feeInvalid"));
+  feeSaving.value = true;
+  try {
+    const { data } = await api.put("/settings", { membershipFee: fee });
+    membershipFee.value = data.membershipFee;
+    toast.ok(t("settings.settingSaved"));
+  } catch (e) {
+    toast.err(apiError(e, t("settings.settingFailed")));
+  } finally {
+    feeSaving.value = false;
+  }
+}
 
 async function toggleShowBalance() {
   const next = !showBalance.value;
@@ -126,6 +146,20 @@ async function save() {
           :disabled="settingBusy"
           @click="toggleShowBalance"
         ><span class="knob"></span></button>
+      </div>
+    </div>
+
+    <div class="card form-card">
+      <h2 class="section">{{ t('settings.membership') }}</h2>
+      <div class="field">
+        <label>{{ t('settings.membershipFee') }}</label>
+        <input v-model="membershipFee" type="number" min="0" step="0.01" />
+      </div>
+      <p class="hint">{{ t('settings.membershipFeeHint') }}</p>
+      <div class="actions">
+        <button class="btn btn-primary" type="button" :disabled="feeSaving" @click="saveMembershipFee">
+          {{ feeSaving ? t('settings.saving') : t('settings.save') }}
+        </button>
       </div>
     </div>
   </div>
