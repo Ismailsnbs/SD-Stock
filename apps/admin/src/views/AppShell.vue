@@ -113,7 +113,7 @@ function logout() {
 
 .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .topbar { display: none; }
-.content { padding: 28px 32px 48px; max-width: 1180px; width: 100%; margin: 0 auto; }
+.content { padding: 28px 32px 48px; width: 100%; margin: 0 auto; }
 
 .scrim { display: none; }
 

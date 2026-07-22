@@ -309,10 +309,10 @@ async function exportMembers() {
           <tr v-else-if="!customers.length"><td colspan="7" class="center muted">{{ t('members.empty') }}</td></tr>
           <tr v-for="c in sortedCustomers" :key="c.id" :class="{ rowdanger: c.finance?.status === 'overdue' || c.membership?.debt > 0 }">
             <td class="num strong">{{ c.loginId }}</td>
-            <td>
+            <td class="name-cell">
               {{ c.name }} {{ c.surname }}
-              <div class="sub num">{{ c.telephone || t('members.noPhone') }}</div>
-              <div class="sub num">{{ t('members.memberSince', { date: dateOnly(c.membershipStart) }) }}</div>
+              <div v-if="c.telephone" class="sub num">{{ c.telephone }}</div>
+              <div class="sub num">{{ dateOnly(c.membershipStart) }}</div>
             </td>
             <td class="num">
               <div class="lastpaid">
@@ -339,10 +339,12 @@ async function exportMembers() {
               <span v-if="c.finance?.overdueAmount > 0" class="overdue-amt num">{{ t('members.overdueAmt', { v: money(c.finance.overdueAmount) }) }}</span>
             </td>
             <td class="right actions">
-              <button class="btn btn-primary btn-sm" @click="openPay(c)">{{ t('members.pay') }}</button>
-              <button class="btn btn-ghost btn-sm" @click="viewSales(c)">{{ t('members.sales') }}</button>
-              <button class="btn btn-ghost btn-sm" @click="openEdit(c)">{{ t('members.edit') }}</button>
-              <button class="btn btn-danger btn-sm" @click="remove(c)">{{ t('members.del') }}</button>
+              <div class="act-row">
+                <button class="btn btn-primary btn-sm" @click="openPay(c)">{{ t('members.pay') }}</button>
+                <button class="btn btn-ghost btn-sm" @click="viewSales(c)">{{ t('members.sales') }}</button>
+                <button class="btn btn-ghost btn-sm" @click="openEdit(c)">{{ t('members.edit') }}</button>
+                <button class="btn btn-danger btn-sm" @click="remove(c)">{{ t('members.del') }}</button>
+              </div>
             </td>
           </tr>
         </tbody>
@@ -503,7 +505,10 @@ async function exportMembers() {
 .ok { color: var(--txt-faint); }
 .rowdanger td { background: #fdf6f6; }
 .overdue-amt { display: block; font-size: 11px; color: var(--red); margin-top: 4px; }
-.actions { white-space: nowrap; display: flex; gap: 5px; justify-content: flex-end; }
+.actions { white-space: nowrap; }
+.act-row { display: flex; gap: 5px; justify-content: flex-end; }
+.name-cell { white-space: nowrap; }
+.data td { padding: 10px 12px; }
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 
 .pay-summary { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-bottom: 20px; }
