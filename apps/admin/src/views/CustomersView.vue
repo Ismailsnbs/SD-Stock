@@ -16,6 +16,9 @@ const loading = ref(true);
 
 const showForm = ref(false);
 const editing = ref(null);
+// True while a modal submit is in flight; blocks double-clicks that would
+// otherwise create duplicate records (payments, renewals, members).
+const submitting = ref(false);
 const form = ref({ loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "", membershipFee: "" });
 
 // Payment modal
@@ -106,6 +109,8 @@ function openEdit(c) {
 }
 
 async function save() {
+  if (submitting.value) return;
+  submitting.value = true;
   try {
     if (editing.value) {
       const payload = {
@@ -124,6 +129,8 @@ async function save() {
     load();
   } catch (e) {
     toast.err(apiError(e, t("members.saveFailed")));
+  } finally {
+    submitting.value = false;
   }
 }
 
@@ -150,8 +157,10 @@ const renewTo = computed(() =>
   renewFrom.value ? new Date(new Date(renewFrom.value).getTime() + 30 * 86400000) : null
 );
 async function submitRenew() {
+  if (submitting.value) return;
   const amount = Number(renewAmount.value);
   if (!Number.isFinite(amount) || amount < 0) return toast.err(t("members.payAmtErr"));
+  submitting.value = true;
   try {
     const { data } = await api.post(`/customers/${renewTarget.value.id}/renew`, {
       amount, paid: renewPaidNow.value
@@ -161,6 +170,8 @@ async function submitRenew() {
     load();
   } catch (e) {
     toast.err(apiError(e, t("members.renewFailed")));
+  } finally {
+    submitting.value = false;
   }
 }
 
@@ -178,6 +189,8 @@ async function openHist(c) {
 }
 
 async function markPaid(mp) {
+  if (submitting.value) return;
+  submitting.value = true;
   try {
     await api.post(`/customers/${histTarget.value.id}/membership-payments/${mp.id}/pay`);
     toast.ok(t("members.markPaidOk"));
@@ -186,6 +199,8 @@ async function markPaid(mp) {
     load();
   } catch (e) {
     toast.err(apiError(e, t("members.markPaidFailed")));
+  } finally {
+    submitting.value = false;
   }
 }
 
@@ -230,8 +245,10 @@ async function openPay(c) {
 }
 
 async function submitPayment() {
+  if (submitting.value) return;
   const amount = Number(payAmount.value);
   if (!amount || amount <= 0) return toast.err(t("members.payAmtErr"));
+  submitting.value = true;
   try {
     await api.post(`/customers/${payTarget.value.id}/payments`, { amount, note: payNote.value });
     toast.ok(t("members.paid", { v: money(amount) }));
@@ -239,6 +256,8 @@ async function submitPayment() {
     load();
   } catch (e) {
     toast.err(apiError(e, t("members.payFailed")));
+  } finally {
+    submitting.value = false;
   }
 }
 
@@ -385,7 +404,7 @@ async function exportMembers() {
       </div>
       <template #footer>
         <button class="btn btn-ghost" @click="showForm = false">{{ t('members.cancel') }}</button>
-        <button class="btn btn-primary" @click="save">{{ editing ? t('members.save') : t('members.create') }}</button>
+        <button class="btn btn-primary" :disabled="submitting" @click="save">{{ editing ? t('members.save') : t('members.create') }}</button>
       </template>
     </Modal>
 
@@ -419,7 +438,7 @@ async function exportMembers() {
 
       <template #footer>
         <button class="btn btn-ghost" @click="showPay = false">{{ t('members.cancel') }}</button>
-        <button class="btn btn-primary" @click="submitPayment">{{ t('members.recordPayment') }}</button>
+        <button class="btn btn-primary" :disabled="submitting" @click="submitPayment">{{ t('members.recordPayment') }}</button>
       </template>
     </Modal>
 
@@ -441,7 +460,7 @@ async function exportMembers() {
       </div>
       <template #footer>
         <button class="btn btn-ghost" @click="showRenew = false">{{ t('members.cancel') }}</button>
-        <button class="btn btn-primary" @click="submitRenew">{{ t('members.renewSubmit') }}</button>
+        <button class="btn btn-primary" :disabled="submitting" @click="submitRenew">{{ t('members.renewSubmit') }}</button>
       </template>
     </Modal>
 
@@ -456,7 +475,7 @@ async function exportMembers() {
           <span v-if="mp.paidAt" class="pill pill-green">{{ t('members.histPaidOn', { date: dateOnly(mp.paidAt) }) }}</span>
           <span v-else class="unpaid-cell">
             <span class="pill pill-red">{{ t('members.histUnpaid') }}</span>
-            <button class="btn btn-primary btn-sm" @click="markPaid(mp)">{{ t('members.markPaid') }}</button>
+            <button class="btn btn-primary btn-sm" :disabled="submitting" @click="markPaid(mp)">{{ t('members.markPaid') }}</button>
           </span>
         </div>
       </div>

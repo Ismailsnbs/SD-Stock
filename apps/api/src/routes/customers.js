@@ -176,6 +176,14 @@ customersRouter.post("/:id/payments", requireAdmin, async (req, res) => {
   const customer = await prisma.customer.findUnique({ where: { id } });
   if (!customer) return res.status(404).json({ error: "Member not found." });
 
+  // An identical payment seconds apart is a duplicated submit (double-click,
+  // browser retry), not a second payment — return the existing row instead.
+  const duplicate = await prisma.payment.findFirst({
+    where: { customerId: id, amount, createdAt: { gte: new Date(Date.now() - 5000) } },
+    orderBy: { createdAt: "desc" }
+  });
+  if (duplicate) return res.status(200).json(duplicate);
+
   const payment = await prisma.payment.create({
     data: { customerId: id, amount, note: req.body?.note ? String(req.body.note).trim() : null }
   });
