@@ -13,4 +13,6 @@ export const router = createRouter({ history: createWebHashHistory(), routes });
 router.beforeEach((to) => {
   const auth = useAuth();
   if (to.meta.auth && !auth.isLoggedIn) return { name: "login" };
+  // Logged-in members skip the landing page and go straight to the shop.
+  if (to.name === "home" && auth.isLoggedIn) return { name: "shop" };
 });

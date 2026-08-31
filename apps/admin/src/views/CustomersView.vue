@@ -19,7 +19,7 @@ const editing = ref(null);
 // True while a modal submit is in flight; blocks double-clicks that would
 // otherwise create duplicate records (payments, renewals, members).
 const submitting = ref(false);
-const form = ref({ loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "", membershipFee: "" });
+const form = ref({ loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "", membershipFee: "", firstFeePaid: true });
 
 // Payment modal
 const showPay = ref(false);
@@ -90,7 +90,7 @@ onMounted(load);
 
 async function openAdd() {
   editing.value = null;
-  form.value = { loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "", membershipFee: "" };
+  form.value = { loginId: "", password: "", name: "", surname: "", telephone: "", membershipStart: "", membershipFee: "", firstFeePaid: true };
   showForm.value = true;
   // Suggest the next ID in the sequence (max existing number + 1); still editable.
   try {
@@ -400,6 +400,13 @@ async function exportMembers() {
         <div>
           <label>{{ t('members.fFee') }}</label>
           <input v-model="form.membershipFee" type="number" min="0" step="0.01" :placeholder="t('members.fFeePh')" />
+        </div>
+        <div v-if="!editing" class="paidnow">
+          <label class="check">
+            <input v-model="form.firstFeePaid" type="checkbox" />
+            {{ t('members.fFirstFeePaid') }}
+          </label>
+          <p class="sub">{{ t('members.fFirstFeePaidHint') }}</p>
         </div>
       </div>
       <template #footer>

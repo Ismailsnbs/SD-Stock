@@ -325,6 +325,7 @@ customersRouter.post("/", requireAdmin, async (req, res) => {
   if (exists) return res.status(409).json({ error: "A member with this ID already exists." });
 
   const start = membershipStart && !Number.isNaN(Date.parse(membershipStart)) ? new Date(membershipStart) : new Date();
+  const end = nextBoundary(start);
   const customer = await prisma.customer.create({
     data: {
       loginId: String(loginId).trim(),
@@ -334,11 +335,25 @@ customersRouter.post("/", requireAdmin, async (req, res) => {
       telephone: telephone ? String(telephone).trim() : null,
       membershipFee: fee,
       membershipStart: start,
-      membershipEnd: nextBoundary(start)
+      membershipEnd: end
     }
   });
+
+  // Sign-up is the member's first 30-day package, so it gets a wallet charge
+  // just like a renewal does — otherwise the joining fee never reaches the
+  // membership report and money only shows up from the second month on.
+  const charge = await prisma.membershipPayment.create({
+    data: {
+      customerId: customer.id,
+      amount: fee ?? (await effectiveFee(customer)),
+      periodStart: start,
+      periodEnd: end,
+      paidAt: req.body?.firstFeePaid === false ? null : new Date() // default: collected at the desk
+    }
+  });
+
   const { password: _pw, ...safe } = customer;
-  res.status(201).json(safe);
+  res.status(201).json({ ...safe, charge });
 });
 
 customersRouter.put("/:id", requireAdmin, async (req, res) => {

@@ -39,7 +39,9 @@ const balanceLabel = computed(() => {
 
 const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
-  return q ? products.value.filter((p) => p.name.toLowerCase().includes(q)) : products.value;
+  const list = q ? products.value.filter((p) => p.name.toLowerCase().includes(q)) : products.value;
+  // Sold-out items sink to the bottom; the API's order (featured, then name) holds within each group.
+  return [...list].sort((a, b) => Number(b.inStock) - Number(a.inStock));
 });
 
 // Membership warning: expired, or ending within 5 days.
